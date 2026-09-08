@@ -74,7 +74,7 @@ conda env update -n base -f environment.yml
 
 Download GSMaP NetCDF (`.nc`) data from:
 
-🔗 https://www.heslab-uper.com/riset-data/data/data-hujan-iklim/data-hujan-satelit-indonesia
+🔗 https://heslab-uper.com/data/hujan-satelit
 
 ### 2. Configure the input
 
