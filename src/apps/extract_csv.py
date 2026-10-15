@@ -3,20 +3,12 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 
+from core.local_time import local_offset_hours
+
 
 def export_csv(data_subset, times, XX_subset, YY_subset, path_output, config=None):
-    wilayah_waktu = config.get("wilayah_waktu")
-    # GSMaP time is UTC and marks the START of each hourly period.
-    # Offset = time zone (WIB +7, WITA +8, WIT +9) + 1 h, so the label
-    # marks the END of the period (rain that has already fallen).
-    if wilayah_waktu == "WIB":
-        time_offset = 8
-    elif wilayah_waktu == "WITA":
-        time_offset = 9
-    elif wilayah_waktu == "WIT":
-        time_offset = 10
-    else:
-        time_offset = 0
+    # UTC start-of-hour -> local end-of-hour (core.local_time)
+    time_offset = local_offset_hours(config.get("wilayah_waktu"))
 
     times = [t + pd.Timedelta(hours=time_offset) for t in times]
 

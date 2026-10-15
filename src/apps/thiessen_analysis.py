@@ -8,6 +8,8 @@ from pathlib import Path
 from matplotlib import pyplot as plt
 from pyproj import Geod
 
+from core.series import compute_daily_totals, make_regular_hourly
+
 
 # # import testing
 # import sys
@@ -109,8 +111,11 @@ def polygon_thiesen (config):
         index=df_hujan.index
     )
 
-    df_areal_daily = df_areal.resample("D").sum()
-    df_areal_monthly = df_areal.resample("ME").sum()
+    # Fixed day from day_start_hour to the same hour next day, local time (owner 2026-10-15: 07-07)
+    df_areal = make_regular_hourly(df_areal)
+    df_areal_daily = compute_daily_totals(df_areal, day_start_hour=int(config.get("day_start_hour")),
+                                          date_label=config.get("daily_date_label"))
+    df_areal_monthly = df_areal_daily.resample("ME").sum(min_count=1)
     df_max_daily_yearly = df_areal_daily.resample("YE").max()
 
 

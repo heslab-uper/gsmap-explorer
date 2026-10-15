@@ -1,26 +1,65 @@
-import glob
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 import geopandas as gpd
-from dateutil.relativedelta import relativedelta
 
 from utils.config_reader import read_config
-from core.reader import read_netcdf
+from core.reader import find_month_files, read_netcdf
 
 from apps.extract_csv import export_csv
 from apps.visualize import plot_map  # nanti
 from apps.thiessen_analysis import polygon_thiesen
+from apps.hourly_series import has_shapefile, load_hourly_series
+from apps.frequency_analysis import run_frequency_analysis
+from apps.hourly_characteristics import run_hourly_characteristics
+from apps.extract_points import read_points_file, run_points
+from utils.analysis_settings import read_analysis_settings, read_daily_settings
 
 
-def run_pipeline(mode="extract"):
+def run_analysis(config, settings):
+    """Frequency analysis, intensity and hourly characteristics of the extracted hourly series."""
+    hourly, unit = load_hourly_series(config)
+    out_dir = Path(config.get("path_out")) / "analysis_output"
+    print(f"Analysis of {len(hourly.columns)} {unit} series, {hourly.index[0]} .. {hourly.index[-1]} "
+          f"({int(hourly.isna().all(axis=1).sum())} hours missing)")
+    run_frequency_analysis(hourly, unit, settings, out_dir)
+    run_hourly_characteristics(hourly, unit, settings, out_dir)
+
+
+def run_pipeline(mode="extract", config_path="config/input.txt"):
     # ========================
     # konfigurasi
     # ========================
-    config = read_config("config/input.txt")
+    config = read_config(config_path)
+    print(f"Config: {config_path}")
 
+    # Settings are checked before any data is read
+    settings = None
+    if mode in ("thiessen", "analysis", "all"):
+        if mode == "thiessen" and not has_shapefile(config):
+            raise ValueError(f"mode thiessen needs a shapefile: set path_shp in {config_path}")
+        settings = read_analysis_settings(config)
+        print(f"Analysis settings ({config_path}):")
+        print(settings.describe())
+    if mode == "points":
+        day_start_hour, date_label = read_daily_settings(config)
+        read_points_file(config.get("path_points"))
+
+    # start_date .. end_date: UTC dates of the data, both whole days included
     start_date = datetime.strptime(config.get("start_date"), "%Y-%m-%d")
-    end_date = datetime.strptime(config.get("end_date"), "%Y-%m-%d")
+    end_date = datetime.strptime(config.get("end_date"), "%Y-%m-%d") + timedelta(hours=23)
+    for key in ("path_nc", "path_out", "wilayah_waktu"):
+        print(f"  {key}: {config.get(key)}")
+    print(f"  period (UTC): {start_date:%Y-%m-%d %H:%M} .. {end_date:%Y-%m-%d %H:%M}")
 
+    list_nc_files, missing_months = find_month_files(config.get("path_nc"), start_date, end_date)
+    if missing_months:
+        print(f"  no file for {len(missing_months)} month(s): {' '.join(missing_months)}")
+    if not list_nc_files:
+        raise FileNotFoundError("Tidak ada file NetCDF yang ditemukan untuk rentang tanggal yang diberikan.")
+
+    if mode == "points":
+        run_points(config, list_nc_files, start_date, end_date, day_start_hour, date_label)
+        return
 
 
     # ========================
@@ -49,29 +88,6 @@ def run_pipeline(mode="extract"):
     # ========================
     # Baca file NetCDF
     # ========================
-    all_nc_files = glob.glob(str(Path(config.get("path_nc")) / "*.nc"))
-    current = start_date.replace(day=1)
-    required_months = []
-
-    while current <= end_date:
-        required_months.append(current.strftime("%Y_%m"))
-        current += relativedelta(months=1)
-    
-    list_nc_files = []
-
-    for ym in required_months:
-        matched_file = next(
-            (f for f in all_nc_files if f"{ym}.nc" in Path(f).name),
-            None
-        )
-        if matched_file is None:
-            continue  # Skip if the file for the month is not found
-        list_nc_files.append(matched_file)
-
-    if not list_nc_files:
-        raise FileNotFoundError("Tidak ada file NetCDF yang ditemukan untuk rentang tanggal yang diberikan.")
-
-
     data_subset, times, XX_subset, YY_subset = read_netcdf(list_nc_files, start_date, end_date, extent=extent)
     if data_subset is None or times is None:
         raise ValueError("Tidak ada data yang ditemukan dalam rentang tanggal yang diberikan.")
@@ -92,8 +108,16 @@ def run_pipeline(mode="extract"):
         export_csv(data_subset, times, XX_subset, YY_subset, config.get("path_out"), config)
         polygon_thiesen(config)
 
+    elif mode == "analysis":
+        export_csv(data_subset, times, XX_subset, YY_subset, config.get("path_out"), config)
+        if has_shapefile(config):
+            polygon_thiesen(config)
+        run_analysis(config, settings)
+
     elif mode == "all":
         export_csv(data_subset, times, XX_subset, YY_subset, config.get("path_out"), config)
-  
+
         plot_map(data_subset, times, XX_subset, YY_subset, config)
-        polygon_thiesen(config)
+        if has_shapefile(config):
+            polygon_thiesen(config)
+        run_analysis(config, settings)

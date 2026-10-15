@@ -1,12 +1,17 @@
 # ========================
 # PATH DATA
 # ========================
-# Folder berisi file GSMaP bulanan (*_YYYY_MM.nc), contoh: data/raw/now_2026_05.nc
+# Folder berisi file GSMaP bulanan, juga di subfolder: *_YYYY_MM.nc (portal, contoh
+# data/raw/now_2026_05.nc) atau *_YYYYMM.nc (arsip, contoh 2015/gsmap_std_v8_ga_201501.nc).
+# Satu produk per folder.
 path_nc   = data/raw
 path_out  = data/output
 # Shapefile DAS/sub-DAS, contoh: data/shp/das.shp
 # None = pakai bounding box di bawah (mode thiessen wajib memakai shapefile)
 path_shp  = None
+# Daftar titik untuk mode points: CSV dengan kolom name,lat,lon (derajat desimal,
+# lintang selatan negatif). Nilai = sel grid 0.1 derajat yang memuat titik, tanpa interpolasi.
+path_points = config/points.csv
 path_temp = 'data/temp'
 
 # ========================
@@ -25,8 +30,9 @@ das_field = HydroID  # tentukan nama field yang mewakili das_jawa
 # ========================
 # WAKTU / SUBSET
 # ========================
-start_date     = 2026-01-01   # tahun-bulan-tanggal
-end_date       = 2026-06-30   # tahun-bulan-tanggal
+# Tanggal UTC data (tahun-bulan-tanggal), kedua hari ikut seluruhnya (00-23 UTC)
+start_date     = 2026-01-01
+end_date       = 2026-06-30
 wilayah_waktu = WIB             # WIB, WITA , WIT 
 
 # ========================
@@ -38,39 +44,57 @@ min_lat = -10
 max_lat = -5
 
 ################################################################
-# HYDROLOGIC FREQUENCY ANALYSIS
+# HUJAN HARIAN DAN TAHUN (mode thiessen, analysis, all)
 ################################################################
+# Hari tetap: 24 jam dari jam ini (waktu lokal wilayah_waktu) sampai jam yang
+# sama besoknya. 7 = 07.00-07.00, jam baca pos hujan manual (pemilik 2026-10-15).
+day_start_hour = 7
+# Tanggal hujan harian: start = hari jendela dimulai, end = hari jendela berakhir.
+# start: tanggal D = 07.00 D s.d. 07.00 D+1, sama dengan data pos (CON-2026-03).
+daily_date_label = start
+# Bulan awal tahun: 1 = tahun kalender; mis. 11 = tahun air Nov-Okt.
+year_start_month = 1
+# Tahun dipakai bila >= fraksi ini datanya ada (0 < f <= 1). 0.9 = 90 % (templat hydrology_analysis).
+min_valid_fraction = 0.9
 
-
+################################################################
+# ANALISIS FREKUENSI / KALA ULANG (mode analysis, all)
+################################################################
+# Jumlah tahun lengkap minimum agar deret dianalisis (>= 4). 10 = templat hydrology_analysis.
+min_years = 10
+# Distribusi, metode momen (praktik SNI 2415:2016): Normal, LogNormal, Gumbel, LogPearson3
 distribution_list = Normal,LogNormal,Gumbel,LogPearson3
-
+# Distribusi terpilih: lolos Chi-kuadrat DAN Smirnov-Kolmogorov, Delta max terkecil
+# (pemilik 2026-10-08). Satu-satunya nilai: ks_chisquare
 distribution_selection = ks_chisquare
-
+# Kala ulang, tahun (> 1)
 return_periods = 2,5,10,25,50,100
+# Taraf nyata uji Chi-kuadrat dan Smirnov-Kolmogorov (0 < alpha <= 0.5)
+alpha = 0.05
+# Kelas Chi-kuadrat: sturges = 1 + 3.322 log10 n (dibulatkan) per deret, atau bilangan bulat >= 3
+chi_square_classes = sturges
+# Pengurang derajat bebas Chi-kuadrat: dk = kelas - 1 - nilai ini (praktik SNI: 2), 0..3
+chi_square_parameters_subtracted = 2
+# Plotting position uji Smirnov-Kolmogorov: weibull, gringorten, cunnane, hazen, california
+plotting_position = weibull
 
 ################################################################
-# GOODNESS OF FIT
+# INTENSITAS / IDF (mode analysis, all)
 ################################################################
-
-use_kolmogorov_smirnov = True
-use_chi_square = True
-
-
-################################################################
-# IDF
-################################################################
-
-idf_method = mononobe
-
-duration_minutes =
-5,10,15,30,60,120,180,360,720,1440
+# mononobe: I = R24/24 (24/t)^(2/3) dari hujan harian rancangan;
+# idf: I = R_T(d)/d dari jumlah bergeser data jam-an GSMaP. Satu atau keduanya.
+intensity_methods = mononobe,idf
+# Durasi jumlah bergeser untuk idf, jam (bilangan bulat, minimal 3 nilai) (pemilik 2026-10-15)
+idf_durations_hours = 1,2,3,6,12
+# Rumus yang dicocokkan; terpilih = deviasi rata-rata terkecil: talbot, sherman, ishiguro
+idf_formulas = talbot,sherman,ishiguro
+# Durasi tabel intensitas, menit (idf hanya di dalam rentang idf_durations_hours)
+duration_minutes = 5,10,15,30,60,120,180,360,720,1440
 
 ################################################################
-# DROUGHT INDEX
+# KARAKTERISTIK HUJAN JAM-JAMAN (mode analysis, all)
 ################################################################
-
-run_drought_analysis = False
-
-drought_indices = SPI, PN, RAI
-
-spi_scale = 1,3,6,12
+# Jam basah: hujan >= nilai ini, mm/jam (pemilik 2026-10-15: 0.1)
+wet_hour_threshold_mm = 0.1
+# Kejadian hujan dipisah bila jeda kering >= nilai ini, jam (pemilik 2026-10-15: 6)
+event_min_dry_gap_hours = 6
