@@ -38,6 +38,7 @@ Aplikasi ini difokuskan pada wilayah Indonesia.
 - Rainfall map visualization  
 - Spatial subsetting based on extent or shapefile  
 - Export rainfall data to CSV  
+- Areal rainfall per sub-watershed using Thiessen polygons  
 
 ---
 
@@ -47,6 +48,7 @@ Aplikasi ini difokuskan pada wilayah Indonesia.
 - Visualisasi peta distribusi hujan  
 - Subset wilayah berdasarkan extent atau shapefile  
 - Ekspor data ke format CSV  
+- Hujan wilayah per sub-DAS dengan poligon Thiessen  
 
 ---
 
@@ -76,6 +78,9 @@ Download GSMaP NetCDF (`.nc`) data from:
 
 🔗 https://heslab-uper.com/data/hujan-satelit
 
+Place the monthly `.nc` files in `data/raw/` (or set `path_nc` to their folder).
+Data files are not included in this repository.
+
 ### 2. Configure the input
 
 Edit the input configuration file:
@@ -83,6 +88,14 @@ Edit the input configuration file:
 ```text
 config/input.txt
 ```
+
+Main keys:
+
+- `path_nc` — folder containing the `.nc` files
+- `path_out` — output folder
+- `path_shp` — watershed/sub-watershed shapefile, or `None` to use the bounding box (`min_lon`, `max_lon`, `min_lat`, `max_lat`)
+- `das_field` — shapefile attribute that identifies each sub-watershed (used by `thiessen`)
+- `start_date`, `end_date` — period (`YYYY-MM-DD`)
 
 ### 3. Run the program
 
@@ -102,5 +115,23 @@ Available modes:
 
 - `extract` — Export rainfall data to CSV
 - `visualize` — Generate rainfall maps
-- `all` — Run both extraction and visualization
+- `thiessen` — Export CSV, then compute areal rainfall per sub-watershed
+- `all` — Run extraction, visualization, and Thiessen analysis
+
+Running `run.py` (or `run.bat`) without `--mode` shows a menu.
+
+### Thiessen mode
+
+Requires `path_shp` (a polygon shapefile) and `das_field`. Thiessen polygons
+are built from the GSMaP grid points, clipped to each sub-watershed, and
+weighted by geodesic area. Results in `<path_out>/csv_output/`:
+
+| File | Content |
+|---|---|
+| `koordinat.csv` | grid-point names and coordinates |
+| `hujan_grid.csv` | hourly rainfall per grid point (mm) |
+| `hujan_area_hourly.csv` | hourly areal rainfall per sub-watershed (mm) |
+| `hujan_area_daily.csv` | daily totals |
+| `hujan_area_monthly.csv` | monthly totals |
+| `hujan_max_daily_yearly.csv` | annual maximum daily rainfall |
 

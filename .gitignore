@@ -1,0 +1,9 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# Data: download from https://heslab-uper.com/data/hujan-satelit
+*.nc
+data/raw/
+data/output/
+data/temp/

@@ -1,9 +1,12 @@
 # ========================
 # PATH DATA
 # ========================
-path_nc   = D:/Google/My Drive/1_Master_Dataset/3_GSMaP_ver2/std_ungauged_ver8/nc_hourly
+# Folder berisi file GSMaP bulanan (*_YYYY_MM.nc), contoh: data/raw/now_2026_05.nc
+path_nc   = data/raw
 path_out  = data/output
-path_shp  = D:/OneDrive/6_Analysis_GIS/00_DATA_SHP/01_DAS/das_jawa-i/das_jawa-i.shp
+# Shapefile DAS/sub-DAS, contoh: data/shp/das.shp
+# None = pakai bounding box di bawah (mode thiessen wajib memakai shapefile)
+path_shp  = None
 path_temp = 'data/temp'
 
 # ========================
