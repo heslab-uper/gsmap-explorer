@@ -8,8 +8,8 @@ authors:
     given-names: "Nurul Fajar"
     affiliation: "Program Studi Teknik Sipil, Universitas Pertamina, Indonesia"
 
-version: "1.0.0"
-date-released: 2026-06-27
+version: "1.0.1"
+date-released: 2026-10-15
 
 doi: 10.5281/zenodo.21310278
 url: "https://github.com/heslab-uper/gsmap-explorer"
@@ -17,7 +17,9 @@ url: "https://github.com/heslab-uper/gsmap-explorer"
 abstract: >
   GSMaP Explorer is a Python-based software for processing hourly GSMaP
   NetCDF rainfall data over Indonesia. It subsets the 0.1-degree grid by a
-  bounding box or by the extent of a watershed shapefile, exports gridded
+  bounding box or by the extent of a watershed shapefile, converts time
+  from UTC to Indonesian local time (WIB, WITA, WIT) labelled at the end
+  of each hourly period, exports gridded
   hourly rainfall and grid-point coordinates to CSV, and renders hourly
   rainfall maps. For each sub-watershed it builds Thiessen polygons from
   the grid points and computes area-weighted areal rainfall, exported as

@@ -8,3 +8,4 @@ geopandas>=0.13
 shapely>=2.0
 pyproj>=3.5
 fiona>=1.9
+scipy>=1.10
