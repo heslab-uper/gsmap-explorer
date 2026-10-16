@@ -76,6 +76,28 @@ conda env update -n base -f environment.yml
 
 ---
 
+## 🚀 Cara cepat: deret hujan di titik, box, atau wilayah shapefile
+
+1. Unduh berkas GSMaP `.nc` bulanan dari https://heslab-uper.com/data/hujan-satelit
+   dan simpan di `data/raw/` (atau di folder lain; nanti diketik di menu).
+2. Klik dua kali `run.bat` (atau `python run.py`), pilih **5. Ekstraksi Deret Hujan**.
+3. Jawab pertanyaan di layar; tekan Enter untuk memakai nilai di dalam `[...]`:
+   folder data, produk, wilayah (1 titik dari `config/points.csv`, 2 box, 3 batas
+   luar shapefile), periode, keluaran (jam-jaman, harian, bulanan, tahunan) dan
+   zona waktu (WIB, WITA, WIT).
+4. Hasil ada di `data/output/series_output/`. Jawaban disimpan di
+   `config/series_last.txt` dan menjadi bawaan pada run berikutnya.
+
+Waktu GSMaP adalah UTC dan menandai awal jam; keluaran memakai label akhir jam
+(hujan yang sudah tercatat), jadi zona + 1 jam: WIB = UTC + 8, WITA = UTC + 9,
+WIT = UTC + 10. Hari hujan = 07.00 sampai 07.00 esok harinya.
+
+**Quick start (English):** put the monthly `.nc` files in `data/raw/`, run
+`run.bat` (or `python run.py`), choose **5**, answer the questions (Enter keeps
+the value in `[...]`). Results go to `data/output/series_output/`.
+
+---
+
 ## ✅ Usage
 
 ### 1. Prepare the data
@@ -84,7 +106,8 @@ Download GSMaP NetCDF (`.nc`) data from:
 
 🔗 https://heslab-uper.com/data/hujan-satelit
 
-Place the monthly `.nc` files in `data/raw/` (or set `path_nc` to their folder).
+Place the monthly `.nc` files in `data/raw/` (or set `path_nc` to their folder;
+the series mode asks for the folder, default `gsmap_data_folder`).
 Data files are not included in this repository.
 
 ### 2. Configure the input
@@ -148,8 +171,9 @@ python run.py --mode series --config my_job/input.txt
 
 Asks on screen, with the config values as defaults (press Enter to keep one):
 
-1. **Product** — every `NC` folder under `gsmap_archive_root` (e.g. `STD/V8/GA`,
-   `NRT/V8/NGA`, `NOW`); with `gsmap_archive_root = None`, the files in `path_nc`.
+1. **Data folder and product** — a folder of monthly files (default `data/raw`),
+   or an archive folder whose products each have an `NC` folder (e.g. `STD/V8/GA`,
+   `NRT/V8/NGA`, `NOW`), listed to choose from.
    Monthly files may be named `*_YYYY_MM.nc` (portal) or `*_YYYYMM.nc`
    (archive, also in year subfolders).
 2. **Region** — `points` (CSV `path_points` with columns `name`, `lat`, `lon`,
@@ -160,6 +184,8 @@ Asks on screen, with the config values as defaults (press Enter to keep one):
 5. **Time zone** — WIB, WITA, WIT. Labels mark the end of the recorded hour,
    so the offset is the zone + 1 h: UTC + 8 h (WIB), + 9 h (WITA), + 10 h (WIT).
 
+The answers are saved in `series_last.txt` next to the config file and are the
+defaults of the next run (delete the file to return to `config/input.txt`).
 `--no-menu` takes the config values without asking (for scheduled runs).
 No interpolation: each column is one 0.1-degree cell; points in the same
 cell get identical series, boxes and shapes take every cell they overlap.

@@ -36,11 +36,15 @@ def run_pipeline(mode="extract", config_path="config/input.txt", menu=True):
     # Series: product, region, period, outputs and zone chosen on screen (defaults from the config)
     if mode == "series":
         try:
-            choice = ask_series_choice(config, interactive=menu)
+            choice = ask_series_choice(config, interactive=menu,
+                                       last_path=Path(config_path).parent / "series_last.txt")
+            run_series(choice)
         except Cancelled:
             print("Dibatalkan.")
-            return
-        run_series(choice)
+        except (ValueError, FileNotFoundError) as exc:   # SettingsError is a ValueError
+            print(f"\nGalat: {exc}")
+            if not menu:
+                raise SystemExit(1)
         return
 
     # Settings are checked before any data is read

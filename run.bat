@@ -1,4 +1,6 @@
 @echo off
+rem Jalankan dari folder gsmap-explorer (config\ dan data\ di sini), dari mana pun dibuka
+cd /d "%~dp0"
 
 echo ==========================
 echo   PILIH MODE PROGRAM

@@ -7,3 +7,6 @@ __pycache__/
 data/raw/
 data/output/
 data/temp/
+
+# Last answers of the series menu (machine paths of each user)
+series_last.txt

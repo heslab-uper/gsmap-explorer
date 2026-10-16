@@ -15,11 +15,14 @@ path_points = config/points.csv
 path_temp = 'data/temp'
 
 # ========================
-# EKSTRAKSI DERET (mode series): nilai bawaan menu, dipakai langsung dengan --no-menu
+# EKSTRAKSI DERET (mode series): nilai bawaan menu, dipakai langsung dengan --no-menu.
+# Menu mengingat jawaban terakhir di config/series_last.txt (tidak masuk repo); hapus berkas
+# itu untuk kembali ke nilai di bawah.
 # ========================
-# Folder arsip berisi NOW, NRT/V*/{GA,NGA}, STD/V*/{GA,NGA}, masing-masing dengan NC/<tahun>/
-# *_YYYYMM.nc; menu menampilkan produk yang ada. None = pakai path_nc saja.
-gsmap_archive_root = None
+# Folder data GSMaP: folder berisi berkas bulanan (*_YYYY_MM.nc dari portal, atau
+# <tahun>/*_YYYYMM.nc), atau folder arsip berisi beberapa produk, masing-masing dengan folder NC
+# (mis. STD/V8/GA/NC/2015/gsmap_std_v8_ga_201501.nc); menu menampilkan produk yang ada.
+gsmap_data_folder = data/raw
 # Produk bawaan, nama seperti di menu (mis. STD/V8/GA, NRT/V8/NGA, NOW)
 gsmap_product = STD/V8/GA
 # Wilayah: points (berkas path_points), box (min_lon..max_lat di bawah), shape (batas luar path_shp)
