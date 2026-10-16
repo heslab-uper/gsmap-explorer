@@ -9,10 +9,26 @@ path_out  = data/output
 # Shapefile DAS/sub-DAS, contoh: data/shp/das.shp
 # None = pakai bounding box di bawah (mode thiessen wajib memakai shapefile)
 path_shp  = None
-# Daftar titik untuk mode points: CSV dengan kolom name,lat,lon (derajat desimal,
-# lintang selatan negatif). Nilai = sel grid 0.1 derajat yang memuat titik, tanpa interpolasi.
+# Daftar titik untuk mode series (wilayah points): CSV dengan kolom name,lat,lon (derajat
+# desimal, lintang selatan negatif). Nilai = sel grid 0.1 derajat yang memuat titik, tanpa interpolasi.
 path_points = config/points.csv
 path_temp = 'data/temp'
+
+# ========================
+# EKSTRAKSI DERET (mode series): nilai bawaan menu, dipakai langsung dengan --no-menu
+# ========================
+# Folder arsip berisi NOW, NRT/V*/{GA,NGA}, STD/V*/{GA,NGA}, masing-masing dengan NC/<tahun>/
+# *_YYYYMM.nc; menu menampilkan produk yang ada. None = pakai path_nc saja.
+gsmap_archive_root = None
+# Produk bawaan, nama seperti di menu (mis. STD/V8/GA, NRT/V8/NGA, NOW)
+gsmap_product = STD/V8/GA
+# Wilayah: points (berkas path_points), box (min_lon..max_lat di bawah), shape (batas luar path_shp)
+series_selection = points
+# Keluaran, satu atau lebih: hourly, daily, monthly, yearly. Bulanan/tahunan = jumlah hari hujan,
+# kosong bila ada hari yang hilang atau bulan/tahun tidak penuh di dalam periode.
+series_outputs = hourly,daily,monthly,yearly
+# Tanpa menu, berhenti bila tabel jam-an melebihi nilai ini (kolom x jam); dengan menu selalu ditanya
+series_confirm_values = 50000000
 
 # ========================
 # NETCDF SETTINGS
@@ -30,10 +46,13 @@ das_field = HydroID  # tentukan nama field yang mewakili das_jawa
 # ========================
 # WAKTU / SUBSET
 # ========================
-# Tanggal UTC data (tahun-bulan-tanggal), kedua hari ikut seluruhnya (00-23 UTC)
+# Tanggal (tahun-bulan-tanggal), kedua hari ikut seluruhnya. Mode series: tanggal hari hujan
+# lokal (day_start_hour s.d. day_start_hour besoknya); mode lain: tanggal UTC data (00-23 UTC).
 start_date     = 2026-01-01
 end_date       = 2026-06-30
-wilayah_waktu = WIB             # WIB, WITA , WIT 
+# Zona waktu keluaran: WIB, WITA, WIT. Label = akhir jam pencatatan, jadi zona + 1 jam:
+# WIB UTC+8, WITA UTC+9, WIT UTC+10 (pemilik 2026-10-15). Nilai lain = UTC awal jam.
+wilayah_waktu = WIB
 
 # ========================
 # SPATIAL BOUNDING BOX (jika tidak memiliki file shapefile bisa menggunakanan ini)

@@ -56,41 +56,64 @@ def grid_cells(lat_axis, lon_axis, lats, lons) -> tuple[np.ndarray, np.ndarray]:
     return i, j
 
 
-def read_points(file_path_list, lats, lons, start_date, end_date):
-    """Hourly rain of the grid cell holding each point, from monthly GSMaP files.
+def grid_axes(file_path) -> tuple[np.ndarray, np.ndarray]:
+    """``lat`` and ``lon`` cell centres of a GSMaP file (float64; lat may run north to south)."""
+    with Dataset(file_path, 'r') as nc:
+        return np.asarray(nc.variables['lat'][:], np.float64), np.asarray(nc.variables['lon'][:], np.float64)
 
-    Only the small window of rows and columns holding all points is read.
-    Masked cells become NaN. Times are the UTC start-of-hour stamps of the
-    files, kept from ``start_date`` to ``end_date`` inclusive.
+
+def cells_in_box(lat_axis, lon_axis, min_lon, max_lon, min_lat, max_lat) -> tuple[np.ndarray, np.ndarray]:
+    """Rows and columns of every cell that overlaps the box (cell edges = centre +- half a step).
+
+    A box smaller than one cell still gets the cell(s) it touches. Raises
+    ValueError when the box misses the grid.
+    """
+    half_lat, half_lon = np.abs(np.diff(lat_axis)).max() / 2, np.abs(np.diff(lon_axis)).max() / 2
+    rows = np.nonzero((lat_axis + half_lat > min_lat) & (lat_axis - half_lat < max_lat))[0]
+    cols = np.nonzero((lon_axis + half_lon > min_lon) & (lon_axis - half_lon < max_lon))[0]
+    if rows.size == 0 or cols.size == 0:
+        raise ValueError(f"box lon {min_lon}..{max_lon}, lat {min_lat}..{max_lat} is outside the grid "
+                         f"(lat {lat_axis.min():.2f}..{lat_axis.max():.2f}, lon {lon_axis.min():.2f}..{lon_axis.max():.2f})")
+    return rows, cols
+
+
+def read_window(file_path_list, rows, cols, start_date, end_date):
+    """Hourly rain of the block of grid rows x columns, from monthly GSMaP files.
+
+    Only the block spanning ``rows`` and ``cols`` is read from each file.
+    Every file must have the axes of the first one. Masked cells become NaN.
+    Times are the UTC start-of-hour stamps of the files, kept from
+    ``start_date`` to ``end_date`` inclusive.
 
     Returns
     -------
-    times : numpy.ndarray of datetime (UTC), values : (n_times, n_points) float64,
-    cell_lat, cell_lon : centre of each point's cell (from the first file).
+    times : numpy.ndarray of datetime (UTC)
+    values : (n_times, len(rows), len(cols)) float64
     """
-    lats, lons = np.asarray(lats, np.float64), np.asarray(lons, np.float64)
-    times_all, data_all, cell_lat, cell_lon = [], [], None, None
+    rows, cols = np.asarray(rows), np.asarray(cols)
+    i0, i1, j0, j1 = int(rows.min()), int(rows.max()), int(cols.min()), int(cols.max())
+    ref = grid_axes(file_path_list[0])
+    times_all, data_all = [], []
     for file_path in file_path_list:
         with Dataset(file_path, 'r') as nc:
-            lat_axis, lon_axis = nc.variables['lat'][:], nc.variables['lon'][:]
-            i, j = grid_cells(lat_axis, lon_axis, lats, lons)
-            if cell_lat is None:
-                cell_lat, cell_lon = np.asarray(lat_axis)[i], np.asarray(lon_axis)[j]
+            lat, lon = np.asarray(nc.variables['lat'][:], np.float64), np.asarray(nc.variables['lon'][:], np.float64)
+            if lat.shape != ref[0].shape or lon.shape != ref[1].shape or \
+                    np.abs(lat - ref[0]).max() > 1e-3 or np.abs(lon - ref[1]).max() > 1e-3:
+                raise ValueError(f"{file_path}: lat/lon axes differ from {file_path_list[0]}")
             times = _times(nc)
             keep = (times >= start_date) & (times <= end_date)
             if not keep.any():
                 continue
-            i0, i1, j0, j1 = int(i.min()), int(i.max()), int(j.min()), int(j.max())
-            window = nc.variables['precipitation'][:, i0:i1 + 1, j0:j1 + 1]
-            window = np.ma.filled(np.ma.asarray(window, dtype=np.float64), np.nan)
+            block = nc.variables['precipitation'][:, i0:i1 + 1, j0:j1 + 1]
+            block = np.ma.filled(np.ma.asarray(block, dtype=np.float64), np.nan)
             times_all.append(times[keep])
-            data_all.append(window[keep][:, i - i0, j - j0])
+            data_all.append(block[keep][:, rows - i0][:, :, cols - j0])
             print(f"  read {Path(file_path).name}: {int(keep.sum())} hours")
     if not times_all:
-        raise ValueError("no data in the period start_date..end_date in the files found")
+        raise ValueError("no data in the period in the files found")
     times_all, data_all = np.concatenate(times_all), np.concatenate(data_all, axis=0)
     unique_times, unique_idx = np.unique(times_all, return_index=True)
-    return unique_times, data_all[unique_idx], cell_lat, cell_lon
+    return unique_times, data_all[unique_idx]
 
 
 def read_netcdf(file_path_list, start_date=None, end_date=None, extent=None):

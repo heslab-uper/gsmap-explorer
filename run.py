@@ -16,7 +16,7 @@ def pilih_mode():
     print("2. Visualisasi")
     print("3. Hujan Regional (Thiessen)")
     print("4. Analisis Hujan (kala ulang, IDF, karakteristik jam-jaman)")
-    print("5. Hujan di Titik Koordinat (jam-an dan harian)")
+    print("5. Ekstraksi Deret Hujan (titik / box / batas shapefile)")
     print("6. Semua")
     print()
 
@@ -25,7 +25,7 @@ def pilih_mode():
         "2": "visualize",
         "3": "thiessen",
         "4": "analysis",
-        "5": "points",
+        "5": "series",
         "6": "all"
     }
 
@@ -43,7 +43,7 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--mode",
-        choices=["extract", "visualize", "thiessen", "analysis", "points", "all"],
+        choices=["extract", "visualize", "thiessen", "analysis", "series", "all"],
         help="Pilih mode"
     )
     parser.add_argument(
@@ -51,10 +51,15 @@ if __name__ == "__main__":
         default="config/input.txt",
         help="Berkas config (bawaan: config/input.txt)"
     )
+    parser.add_argument(
+        "--no-menu",
+        action="store_true",
+        help="Mode series: pakai nilai config tanpa pertanyaan di layar"
+    )
 
     args = parser.parse_args()
 
     # Jika --mode tidak diberikan → tampilkan menu
     mode = args.mode if args.mode else pilih_mode()
 
-    run_pipeline(mode=mode, config_path=args.config)
+    run_pipeline(mode=mode, config_path=args.config, menu=not args.no_menu)

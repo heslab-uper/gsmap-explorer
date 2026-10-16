@@ -11,8 +11,9 @@ from apps.thiessen_analysis import polygon_thiesen
 from apps.hourly_series import has_shapefile, load_hourly_series
 from apps.frequency_analysis import run_frequency_analysis
 from apps.hourly_characteristics import run_hourly_characteristics
-from apps.extract_points import read_points_file, run_points
-from utils.analysis_settings import read_analysis_settings, read_daily_settings
+from apps.extract_series import run_series
+from apps.series_menu import Cancelled, ask_series_choice
+from utils.analysis_settings import read_analysis_settings
 
 
 def run_analysis(config, settings):
@@ -25,12 +26,22 @@ def run_analysis(config, settings):
     run_hourly_characteristics(hourly, unit, settings, out_dir)
 
 
-def run_pipeline(mode="extract", config_path="config/input.txt"):
+def run_pipeline(mode="extract", config_path="config/input.txt", menu=True):
     # ========================
     # konfigurasi
     # ========================
     config = read_config(config_path)
     print(f"Config: {config_path}")
+
+    # Series: product, region, period, outputs and zone chosen on screen (defaults from the config)
+    if mode == "series":
+        try:
+            choice = ask_series_choice(config, interactive=menu)
+        except Cancelled:
+            print("Dibatalkan.")
+            return
+        run_series(choice)
+        return
 
     # Settings are checked before any data is read
     settings = None
@@ -40,10 +51,6 @@ def run_pipeline(mode="extract", config_path="config/input.txt"):
         settings = read_analysis_settings(config)
         print(f"Analysis settings ({config_path}):")
         print(settings.describe())
-    if mode == "points":
-        day_start_hour, date_label = read_daily_settings(config)
-        read_points_file(config.get("path_points"))
-
     # start_date .. end_date: UTC dates of the data, both whole days included
     start_date = datetime.strptime(config.get("start_date"), "%Y-%m-%d")
     end_date = datetime.strptime(config.get("end_date"), "%Y-%m-%d") + timedelta(hours=23)
@@ -56,10 +63,6 @@ def run_pipeline(mode="extract", config_path="config/input.txt"):
         print(f"  no file for {len(missing_months)} month(s): {' '.join(missing_months)}")
     if not list_nc_files:
         raise FileNotFoundError("Tidak ada file NetCDF yang ditemukan untuk rentang tanggal yang diberikan.")
-
-    if mode == "points":
-        run_points(config, list_nc_files, start_date, end_date, day_start_hour, date_label)
-        return
 
 
     # ========================

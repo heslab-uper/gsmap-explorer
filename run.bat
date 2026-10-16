@@ -7,7 +7,7 @@ echo 1. Extract CSV
 echo 2. Visualisasi
 echo 3. Hujan Regional (Thiessen)
 echo 4. Analisis Hujan (kala ulang, IDF, karakteristik jam-jaman)
-echo 5. Hujan di Titik Koordinat (jam-an dan harian)
+echo 5. Ekstraksi Deret Hujan (titik / box / batas shapefile)
 echo 6. Semua
 echo.
 
@@ -17,7 +17,7 @@ if "%choice%"=="1" python run.py --mode extract
 if "%choice%"=="2" python run.py --mode visualize
 if "%choice%"=="3" python run.py --mode thiessen
 if "%choice%"=="4" python run.py --mode analysis
-if "%choice%"=="5" python run.py --mode points
+if "%choice%"=="5" python run.py --mode series
 if "%choice%"=="6" python run.py --mode all
 
 pause

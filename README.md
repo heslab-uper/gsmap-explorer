@@ -134,30 +134,45 @@ Available modes:
 - `visualize` — Generate rainfall maps
 - `thiessen` — Export CSV, then compute areal rainfall per sub-watershed
 - `analysis` — Export CSV (and Thiessen when a shapefile is given), then design rainfall, intensity and hourly characteristics
-- `points` — Hourly and daily rainfall at the coordinates listed in `path_points`
+- `series` — Rainfall series at points, in a box, or in the bounds of a shapefile (asks on screen)
 - `all` — Run extraction, visualization, Thiessen (when a shapefile is given) and analysis
 
 Running `run.py` (or `run.bat`) without `--mode` shows a menu. Another
 config file can be given with `--config`, e.g.
 
 ```bash
-python run.py --mode points --config my_job/input.txt
+python run.py --mode series --config my_job/input.txt
 ```
 
-### Points mode
+### Series mode
 
-`path_points` is a CSV file with columns `name`, `lat`, `lon` (decimal
-degrees, south negative), e.g. `config/points.csv`. Each point takes the
-value of the 0.1-degree GSMaP cell that holds it (no interpolation); points
-in the same cell get identical series. Monthly files may be named
-`*_YYYY_MM.nc` (portal) or `*_YYYYMM.nc` (archive, also in year subfolders).
-Results in `<path_out>/points_output/`:
+Asks on screen, with the config values as defaults (press Enter to keep one):
+
+1. **Product** — every `NC` folder under `gsmap_archive_root` (e.g. `STD/V8/GA`,
+   `NRT/V8/NGA`, `NOW`); with `gsmap_archive_root = None`, the files in `path_nc`.
+   Monthly files may be named `*_YYYY_MM.nc` (portal) or `*_YYYYMM.nc`
+   (archive, also in year subfolders).
+2. **Region** — `points` (CSV `path_points` with columns `name`, `lat`, `lon`,
+   e.g. `config/points.csv`), `box` (`min_lon`, `max_lon`, `min_lat`, `max_lat`)
+   or `shape` (the total bounds of `path_shp`).
+3. **Period** — first and last rain day (local, `day_start_hour` to the same hour next day).
+4. **Outputs** — hourly, daily, monthly, yearly (one or more).
+5. **Time zone** — WIB, WITA, WIT. Labels mark the end of the recorded hour,
+   so the offset is the zone + 1 h: UTC + 8 h (WIB), + 9 h (WITA), + 10 h (WIT).
+
+`--no-menu` takes the config values without asking (for scheduled runs).
+No interpolation: each column is one 0.1-degree cell; points in the same
+cell get identical series, boxes and shapes take every cell they overlap.
+Results in `<path_out>/series_output/<product>_<region>_<start>_<end>_<zone>/`:
 
 | File | Content |
 |---|---|
-| `points_cells.csv` | each point, the centre of its cell, and the points sharing that cell |
-| `rain_points_hourly.csv` | hourly rainfall (mm), local end-of-hour labels, missing hours empty |
-| `rain_points_daily.csv` | daily totals (mm), fixed day from `day_start_hour`, empty when an hour is missing |
+| `cells.csv` | each column: its cell centre (and the point, and the points sharing that cell) |
+| `rain_hourly.csv` | hourly rainfall (mm), local end-of-hour labels, missing hours empty |
+| `rain_daily.csv` | daily totals (mm); empty when an hour of the day is missing |
+| `rain_monthly.csv` | monthly totals of the rain days (mm); empty when a day is missing or the month is not wholly in the period |
+| `rain_yearly.csv` | yearly totals, same rule |
+| `choices.txt` | the choices of the run and a summary |
 
 ### Thiessen mode
 
