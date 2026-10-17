@@ -54,8 +54,17 @@ are not read, and each missing new key stops the program with its name.
   `environment.yml`; `run.bat` uses it and sets `GDAL_DATA`. `rasterio` and
   `libgdal-core` are pinned (1.5.0, 3.12): the newest builds fail to import on
   Windows (2026-10-17).
-- A summary (region, period, cells x hours, output) and `Lanjut? [Y/n]` before
-  the data are read; `--no-menu` skips the question.
+- **A page in the browser** (owner 2026-10-17): `run.bat` without arguments
+  opens it from a small server on `127.0.0.1` (this computer only, random port,
+  a key per start). Folders and files are chosen with *Telusuri* (browse), the
+  data folder is checked (months found, duplicate months), a shapefile shows
+  its CRS, polygons and columns for the id field, and the summary (region,
+  period, cells x hours, output) is asked from the program as the fields
+  change. *Jalankan* (run) saves the choices to `config/input.local.txt`
+  (other lines kept), shows the log and lists the result folders with *Buka
+  folder* (open). One run at a time; `--text-menu` keeps the console menu.
+- With `--mode`, the summary and `Lanjut? [Y/n]` come before the data are
+  read; `--no-menu` skips the question.
 - `config/input.local.txt` (not in git) for the values of one computer; it
   replaces keys of `config/input.txt`. `output_folder` inside the program
   folder must be under `data/`.

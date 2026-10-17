@@ -64,18 +64,21 @@ through cartopy and are downloaded once, at the first map (internet needed).
 
 1. Unduh berkas GSMaP `.nc` bulanan ke satu folder per produk (boleh dengan
    subfolder tahun).
-2. Salin `config\input.local.example.txt` menjadi `config\input.local.txt`, lalu
-   isi `gsmap_folder` dengan folder itu. Berkas lokal ini tidak masuk git, jadi
-   path komputer Anda tidak ikut terbit.
-3. Atur periode dan wilayah di `config\input.txt` (`start_date`, `end_date`,
-   `extract_region`, `min_lon` .. `max_lat`).
-4. Klik dua kali **`run.bat`**, pilih 1, 2 atau 3, periksa ringkasan, jawab
-   `Lanjut? [Y/n]`.
-5. Hasil di `data\output\` (kunci `output_folder`).
+2. Klik dua kali **`run.bat`**. Halaman gsmap-explorer terbuka di peramban
+   (hanya di komputer ini, tanpa internet); jendela hitam di belakangnya
+   biarkan terbuka.
+3. Di halaman: **Telusuri** folder data, pilih menu (Extract, Visualisasi,
+   Thiessen), wilayah (kotak, shapefile, titik), periode, dan folder hasil.
+   Ringkasan muncul sendiri; klik **Jalankan**, ikuti prosesnya, lalu
+   **Buka folder** hasil.
+4. Pilihan disimpan ke `config\input.local.txt` (tidak masuk git), jadi
+   halaman berikutnya terbuka dengan isian terakhir. **Tutup program** bila
+   selesai.
 
-English: copy `config\input.local.example.txt` to `config\input.local.txt`,
-set `gsmap_folder` there, double-click `run.bat`, choose 1, 2 or 3, answer
-`Lanjut?` (continue). Results go to `data\output\`.
+English: double-click `run.bat`; a page opens in the browser (local only).
+Browse to the data folder, choose the menu, region, period and output folder,
+check the summary, click **Jalankan** (run) and open the result folder. The
+choices are kept in `config\input.local.txt` (not in git).
 
 ---
 
@@ -90,12 +93,20 @@ same month stop the program. Data files are not included in this repository.
 
 ### 2. Configure
 
-`config/input.txt` holds every choice; each key is explained by its comment and
-checked before any data is read (a missing or wrong key stops the program with
-its name). Values of one computer go in `config/input.local.txt` (copy
-`config/input.local.example.txt`): it is not in git, each key there replaces
-the same key of `config/input.txt`, and the program prints which keys came
-from it.
+The page of `run.bat` writes your choices to `config/input.local.txt`; you
+normally do not edit any file. That file is not in git, each key there
+replaces the same key of `config/input.txt`, and the program prints which keys
+came from it. The page changes only the keys it shows (`gsmap_folder`,
+`extract_region`, `min_lon` .. `max_lat`, `points_file`, `shape_<name>`,
+`start_date`, `end_date`, `output_folder`, `time_zone`, `day_start_hour`,
+`rain_outputs`, `map_outputs`) and keeps the other lines and comments of the
+file; a `shape_<name>` line removed on the page is removed from the file.
+
+`config/input.txt` holds the defaults of every choice; each key is explained
+by its comment and checked before any data is read (a missing or wrong key
+stops the program with its name). Keys the page does not show (margin, year
+start, map classes and labels, relief) are set there, or in `config/input.local.txt` to keep them out of
+git.
 
 Main keys (paths are absolute, or relative to the folder of `run.py`):
 
@@ -122,16 +133,24 @@ window ends (Thursday = Wednesday 07.00 to Thursday 07.00). `start_date` ..
 
 ### 3. Run
 
-Double-click `run.bat` (it uses the Python of `env\`), or:
+Double-click `run.bat` (it uses the Python of `env\`). It starts a small
+server on `127.0.0.1` (this computer only, a random port, refused without the
+key the page carries) and opens the page in the default browser. The page
+checks each field, asks the program for the summary (region read, period,
+cells x hours, output folder) and enables **Jalankan** when it is ready. The
+log of the run is shown on the page and in the console window; one run at a
+time. Close with **Tutup program** or by closing the console window.
+
+Without the browser (scheduled runs, servers):
 
 ```bash
-python run.py --mode extract
+python run.py --mode extract --no-menu
 ```
 
-Modes: `extract`, `visualize`, `thiessen`. Without `--mode` a menu asks. The
-program prints a summary (region read, period, cells x hours, output folder)
-and asks `Lanjut? [Y/n]`; `--no-menu` skips the question (scheduled runs).
-Another config file: `--config my_job/input.txt`.
+Modes: `extract`, `visualize`, `thiessen`; they read the config files as they
+are. Without `--no-menu` the program prints the summary and asks
+`Lanjut? [Y/n]`. `--text-menu` gives the menu in the console instead of the
+page. Another config file: `--config my_job/input.txt`.
 
 ### The five rain outputs
 

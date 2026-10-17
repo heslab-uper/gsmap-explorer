@@ -147,13 +147,23 @@ def read_netcdf(file_path_list, start_date, end_date, extent):
     times : numpy.ndarray of datetime, UTC start-of-hour stamps
     lon, lat : cell centres of the columns and rows
     """
+    lat_axis, lon_axis, rows, cols = centre_cells(file_path_list[0], extent)
+    times, values = read_window(file_path_list, rows, cols, start_date, end_date)
+    return values, times, lon_axis[cols], lat_axis[rows]
+
+
+def centre_cells(file_path, extent):
+    """The cells ``read_netcdf`` reads: centre in ``extent`` (bounds included), axes rounded to 2 decimals.
+
+    Returns the rounded axes and the rows and columns. Raises ValueError when no centre lies in ``extent``.
+    One place for this rule, so the summary before a run counts exactly the cells that are read.
+    """
     min_lon, max_lon, min_lat, max_lat = extent
-    lat_axis, lon_axis = (np.round(a, 2) for a in grid_axes(file_path_list[0]))
+    lat_axis, lon_axis = (np.round(a, 2) for a in grid_axes(file_path))
     rows = np.nonzero((lat_axis >= min_lat) & (lat_axis <= max_lat))[0]
     cols = np.nonzero((lon_axis >= min_lon) & (lon_axis <= max_lon))[0]
     if rows.size == 0 or cols.size == 0:
-        raise ValueError(f"no grid cell centre in lon {min_lon}..{max_lon}, lat {min_lat}..{max_lat} "
+        raise ValueError(f"no grid cell centre in lon {min_lon:g}..{max_lon:g}, lat {min_lat:g}..{max_lat:g} "
                          f"(grid lat {lat_axis.min():.2f}..{lat_axis.max():.2f}, "
                          f"lon {lon_axis.min():.2f}..{lon_axis.max():.2f})")
-    times, values = read_window(file_path_list, rows, cols, start_date, end_date)
-    return values, times, lon_axis[cols], lat_axis[rows]
+    return lat_axis, lon_axis, rows, cols

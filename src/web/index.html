@@ -1,0 +1,682 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>gsmap-explorer</title>
+<style>
+/* one column of sections, like the console summary; offline: system fonts, no external file */
+:root {
+  --bg: #f4f6f6; --card: #ffffff; --fg: #1d2523; --muted: #5d6b67; --line: #d6dedb;
+  --accent: #1f6f8b; --on-accent: #ffffff; --accent-soft: #e2eff4; --ok: #2e7d4f; --bad: #b3402f;
+  --field: #f8faf9; --hover: #eaf1f3; --shade: rgba(10, 20, 18, .45);
+  --sans: "Segoe UI", system-ui, sans-serif; --mono: Consolas, "Cascadia Mono", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #121816; --card: #19211f; --fg: #e0e8e5; --muted: #98a8a3; --line: #2c3935;
+          --accent: #6cb8d4; --on-accent: #0d1a1f; --accent-soft: #1d3540; --ok: #7cc79d; --bad: #e58b7b;
+          --field: #1e2826; --hover: #22302d; --shade: rgba(0, 0, 0, .6); color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }   /* the class display rules must not show hidden parts */
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.55 var(--sans); }
+main { max-width: 760px; margin: 0 auto; padding: 24px 16px 48px; display: grid; gap: 12px; }
+header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+h1 { font-size: 1.35rem; margin: 0; font-weight: 600; }
+.status { font-size: .85rem; color: var(--muted); }
+.ok { color: var(--ok); } .bad { color: var(--bad); }
+section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px;
+          display: grid; gap: 10px; }
+section > h2 { font-size: .85rem; font-weight: 600; color: var(--muted); margin: 0; letter-spacing: .02em; }
+.todo, .note { font-size: .85rem; color: var(--muted); margin: 0; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.path { flex: 1; min-width: 0; font: .85rem var(--mono); padding: 8px 10px; border: 1px solid var(--line);
+        border-radius: 7px; background: var(--field); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.path.empty { color: var(--muted); font-family: var(--sans); }
+.check { font-size: .85rem; margin: 0; }
+.err { font-size: .82rem; color: var(--bad); margin: 0; }
+button, select, input { font: inherit; font-size: .9rem; color: var(--fg); }
+button { padding: 7px 14px; border-radius: 7px; border: 1px solid var(--line); background: var(--field);
+         cursor: pointer; white-space: nowrap; }
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+button:focus-visible, select:focus-visible, input:focus-visible, .entry:focus-visible, summary:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px; }
+select, input[type=number], input[type=date] { padding: 6px 8px; border: 1px solid var(--line); border-radius: 7px;
+  background: var(--field); }
+input[type=number] { width: 100%; font-variant-numeric: tabular-nums; }
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; border: 1px solid var(--line);
+       border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; background: transparent; padding: 8px 6px; color: var(--muted); }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed=true] { background: var(--accent-soft); color: var(--fg); font-weight: 600; }
+.box4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.box4 label { display: grid; gap: 4px; font-size: .8rem; color: var(--muted); }
+.shape { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; gap: 8px; }
+.shape .head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.shape .name { font-weight: 600; font-size: .95rem; }
+.shape label { display: flex; gap: 8px; align-items: center; font-size: .85rem; color: var(--muted); }
+.shape select { flex: 1; min-width: 0; color: var(--fg); }
+.sum { margin: 0; font: .82rem/1.6 var(--mono); background: var(--field); border: 1px solid var(--line);
+       border-radius: 7px; padding: 10px 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+button:disabled, input:disabled, select:disabled { opacity: .55; cursor: not-allowed; }
+.log { max-height: 340px; overflow-y: auto; }
+.result { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;
+          border: 1px solid var(--line); border-radius: 7px; padding: 6px 10px; font-size: .88rem; }
+.result code { overflow-wrap: anywhere; }
+details summary { cursor: pointer; font-size: .9rem; }
+details[open] summary { margin-bottom: 10px; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.grid2 label, .checks { display: grid; gap: 4px; font-size: .8rem; color: var(--muted); }
+.checks .row label { display: flex; gap: 6px; align-items: center; color: var(--fg); font-size: .88rem; }
+footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;
+         font-size: .8rem; color: var(--muted); }
+code { font-family: var(--mono); font-size: .85em; }
+/* file browser */
+.shade { position: fixed; inset: 0; background: var(--shade); display: flex; align-items: center;
+         justify-content: center; padding: 16px; }
+.dialog { background: var(--card); border: 1px solid var(--line); border-radius: 12px; width: min(640px, 100%);
+          max-height: 80vh; display: flex; flex-direction: column; }
+.dialog .top { padding: 12px 14px; border-bottom: 1px solid var(--line); display: grid; gap: 8px; }
+.dialog .top h3 { margin: 0; font-size: 1rem; font-weight: 600; }
+.list { overflow-y: auto; padding: 6px; min-height: 200px; }
+.entry { display: flex; gap: 8px; align-items: center; width: 100%; text-align: left; border: 0; background: none;
+         padding: 6px 8px; border-radius: 6px; font-size: .9rem; }
+.entry:hover { background: var(--hover); }
+.entry .ic { width: 1.2em; color: var(--muted); font-family: var(--mono); }
+.entry.file .ic { color: var(--accent); }
+.dialog .bottom { padding: 10px 14px; border-top: 1px solid var(--line); display: flex; gap: 8px;
+                  justify-content: flex-end; align-items: center; flex-wrap: wrap; }
+.dialog .msg { margin-right: auto; font-size: .85rem; }
+@media (max-width: 520px) { .box4, .grid2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>gsmap-explorer</h1>
+    <span id="status" class="status">Menghubungi program…</span>
+  </header>
+
+  <section>
+    <h2>Folder data GSMaP</h2>
+    <div class="row">
+      <div id="data-path" class="path empty">Belum dipilih</div>
+      <button id="data-browse" type="button">Telusuri</button>
+    </div>
+    <p id="data-check" class="check"></p>
+  </section>
+
+  <section>
+    <h2 id="mode-title">Menu</h2>
+    <div class="seg" role="group" aria-labelledby="mode-title" id="mode">
+      <button type="button" data-v="extract">Extract</button>
+      <button type="button" data-v="visualize">Visualisasi</button>
+      <button type="button" data-v="thiessen">Thiessen</button>
+    </div>
+    <p id="mode-note" class="note"></p>
+  </section>
+
+  <section>
+    <h2 id="region-title">Wilayah</h2>
+    <div class="seg" role="group" aria-labelledby="region-title" id="region">
+      <button type="button" data-v="box">Kotak</button>
+      <button type="button" data-v="shape">Shapefile</button>
+      <button type="button" data-v="points">Titik</button>
+    </div>
+    <div id="box-part" class="box4">
+      <label>Bujur min<input id="min_lon" type="number" step="0.01"></label>
+      <label>Bujur maks<input id="max_lon" type="number" step="0.01"></label>
+      <label>Lintang min<input id="min_lat" type="number" step="0.01"></label>
+      <label>Lintang maks<input id="max_lat" type="number" step="0.01"></label>
+    </div>
+    <div id="shape-part" style="display:grid;gap:8px">
+      <div id="shapes"></div>
+      <div class="row"><button id="shape-add" type="button">+ Tambah shapefile</button></div>
+    </div>
+    <div id="points-part" style="display:grid;gap:6px">
+      <div class="row">
+        <div id="points-path" class="path empty">Belum dipilih</div>
+        <button id="points-browse" type="button">Telusuri</button>
+      </div>
+      <p id="points-check" class="check"></p>
+    </div>
+    <p id="region-err" class="err"></p>
+  </section>
+
+  <section>
+    <h2>Periode</h2>
+    <div class="row">
+      <input id="start_date" type="date" aria-label="Tanggal awal">
+      <span class="note">sampai</span>
+      <input id="end_date" type="date" aria-label="Tanggal akhir">
+    </div>
+    <p id="period-note" class="note"></p>
+    <p id="period-err" class="err"></p>
+  </section>
+
+  <section>
+    <h2>Folder hasil</h2>
+    <div class="row">
+      <div id="out-path" class="path empty">Belum dipilih</div>
+      <button id="out-browse" type="button">Telusuri</button>
+    </div>
+    <p id="out-err" class="err"></p>
+  </section>
+
+  <section>
+    <details id="advanced">
+      <summary>Lanjutan: zona waktu, jam awal hari, keluaran</summary>
+      <div class="grid2">
+        <label>Zona waktu<select id="time_zone"></select></label>
+        <label>Jam awal hari hujan (0-23)<input id="day_start_hour" type="number" min="0" max="23" step="1"></label>
+      </div>
+      <div class="checks" id="rain-box" style="margin-top:10px">Tabel hujan yang ditulis<div class="row" id="rain_outputs"></div></div>
+      <div class="checks" id="map-box" style="margin-top:10px">Jenis peta<div class="row" id="map_outputs"></div></div>
+      <p id="adv-err" class="err"></p>
+    </details>
+  </section>
+
+  <section>
+    <h2>Ringkasan</h2>
+    <pre id="sum" class="sum" hidden></pre>
+    <p id="sum-msg" class="check"></p>
+    <div class="row" style="justify-content:flex-end">
+      <span class="note" id="run-note"></span>
+      <button id="run" type="button" class="primary" disabled>Jalankan</button>
+    </div>
+  </section>
+
+  <section id="run-sec" hidden>
+    <h2>Proses</h2>
+    <p id="run-msg" class="check"></p>
+    <pre id="log" class="sum log" aria-live="polite"></pre>
+    <div id="results" style="display:grid;gap:6px"></div>
+  </section>
+
+  <footer>
+    <span id="where"></span>
+    <button id="quit" type="button">Tutup program</button>
+  </footer>
+</main>
+
+<div id="browser" class="shade" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="br-title">
+    <div class="top">
+      <h3 id="br-title">Pilih folder</h3>
+      <div class="row">
+        <button id="br-up" type="button" aria-label="Naik satu folder">↑</button>
+        <button id="br-drives" type="button">Drive</button>
+        <div id="br-path" class="path"></div>
+      </div>
+    </div>
+    <div id="br-list" class="list"></div>
+    <div class="bottom">
+      <span id="br-msg" class="msg"></span>
+      <button id="br-cancel" type="button">Batal</button>
+      <button id="br-choose" type="button" class="primary">Pilih folder ini</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const TOKEN = "__TOKEN__";
+const $ = id => document.getElementById(id);
+
+async function api(path, body = {}) {
+  const r = await fetch(path, {method: "POST", headers: {"X-Token": TOKEN, "Content-Type": "application/json"},
+                               body: JSON.stringify(body)});
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || (path + ": " + r.status));
+  return data;
+}
+
+/* ---- file browser: pick(kind, start) resolves to a path, or null when cancelled ---- */
+const browser = {kind: "folder", path: "", parent: null, resolve: null};
+const TITLES = {folder: "Pilih folder", shp: "Pilih shapefile (.shp)", csv: "Pilih berkas titik (.csv)"};
+
+function pick(kind, start) {
+  browser.kind = kind;
+  $("br-title").textContent = TITLES[kind];
+  $("br-choose").hidden = kind !== "folder";
+  $("browser").hidden = false;
+  open(start || "", true);
+  return new Promise(res => { browser.resolve = res; });
+}
+function closeBrowser(value) {
+  $("browser").hidden = true;
+  if (browser.resolve) browser.resolve(value);
+  browser.resolve = null;
+}
+async function open(path, fromStart = false) {
+  $("br-msg").textContent = "";
+  $("br-msg").className = "msg";
+  try {
+    const d = await api("/api/browse", {path, kind: browser.kind});
+    browser.path = d.path; browser.parent = d.parent;
+    $("br-path").textContent = d.path || "Drive di komputer ini";
+    $("br-up").disabled = d.parent === null;
+    $("br-choose").disabled = !d.path;
+    const list = $("br-list");
+    list.replaceChildren();
+    for (const e of d.entries) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "entry " + e.type;
+      b.innerHTML = '<span class="ic"></span><span class="nm"></span>';
+      b.querySelector(".ic").textContent = e.type === "dir" ? "▸" : "◆";
+      b.querySelector(".nm").textContent = e.name;
+      b.setAttribute("aria-label", (e.type === "dir" ? "Folder " : "Berkas ") + e.name);
+      b.addEventListener("click", () => e.type === "dir" ? open(e.path) : closeBrowser(e.path));
+      list.append(b);
+    }
+    if (!d.entries.length) {
+      $("br-msg").textContent = browser.kind === "folder" ? "Tidak ada subfolder." : "Tidak ada berkas yang cocok di sini.";
+    }
+  } catch (err) {
+    if (fromStart && path) {   // the starting path no longer exists: show the drives instead
+      return open("");
+    }
+    $("br-msg").textContent = err.message;
+    $("br-msg").className = "msg bad";
+  }
+}
+function folderOf(p) { return p ? p.replace(/[\\/][^\\/]*$/, "") : ""; }
+$("br-up").addEventListener("click", () => open(browser.parent || ""));
+$("br-drives").addEventListener("click", () => open(""));
+$("br-cancel").addEventListener("click", () => closeBrowser(null));
+$("br-choose").addEventListener("click", () => closeBrowser(browser.path));
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("browser").hidden) closeBrowser(null); });
+
+/* ---- form state ---- */
+const state = {gsmap_folder: "", data_ok: false, mode: "extract", extract_region: "box", shapes: [],
+               points_file: "", points_ok: false, output_folder: ""};
+const MODE_NOTES = {
+  extract: "Hujan jam-jaman, harian, bulanan, tahunan dan maksimum harian tiap sel grid atau titik.",
+  visualize: "Peta hujan wilayah yang dipilih.",
+  thiessen: "Hujan wilayah per poligon tiap shapefile (bobot luas Thiessen)."};
+
+function showPath(el, value) {
+  el.textContent = value || "Belum dipilih";
+  el.title = value || "";
+  el.classList.toggle("empty", !value);
+}
+function setSeg(id, value) {
+  for (const b of $(id).querySelectorAll("button")) b.setAttribute("aria-pressed", String(b.dataset.v === value));
+}
+
+/* data folder */
+async function setData(path) {
+  state.gsmap_folder = path; state.data_ok = false;
+  showPath($("data-path"), path);
+  const out = $("data-check");
+  if (!path) { out.textContent = ""; return; }
+  out.textContent = "Memeriksa folder…";
+  out.className = "check";
+  try {
+    const c = await api("/api/check_data", {path});
+    state.data_ok = c.ok;
+    out.textContent = (c.ok ? "✓ " : "✗ ") + c.message;
+    out.className = "check " + (c.ok ? "ok" : "bad");
+  } catch (err) {
+    out.textContent = "✗ " + err.message;
+    out.className = "check bad";
+  }
+  validate();
+}
+$("data-browse").addEventListener("click", async () => {
+  const p = await pick("folder", state.gsmap_folder);
+  if (p) setData(p);
+});
+
+/* mode and region: what is shown */
+function render() {
+  setSeg("mode", state.mode);
+  setSeg("region", state.extract_region);
+  $("mode-note").textContent = MODE_NOTES[state.mode];
+  const thiessen = state.mode === "thiessen";
+  const region = thiessen ? "shape" : state.extract_region;
+  $("region").hidden = thiessen;
+  $("region-title").textContent = thiessen ? "Shapefile (wilayah Thiessen)" : "Wilayah";
+  $("box-part").hidden = region !== "box";
+  $("shape-part").hidden = region !== "shape";
+  $("points-part").hidden = region !== "points";
+  $("rain-box").hidden = state.mode === "visualize";
+  $("map-box").hidden = state.mode !== "visualize";
+  validate();
+}
+$("mode").addEventListener("click", e => { if (e.target.dataset.v) { state.mode = e.target.dataset.v; render(); } });
+$("region").addEventListener("click", e => { if (e.target.dataset.v) { state.extract_region = e.target.dataset.v; render(); } });
+
+/* shapefiles */
+function uniqueName(name) {
+  let n = name, k = 2;
+  while (state.shapes.some(s => s.name === n)) n = `${name}_${k++}`;
+  return n;
+}
+function renderShapes() {
+  const box = $("shapes");
+  box.replaceChildren();
+  state.shapes.forEach((s, i) => {
+    const card = document.createElement("div");
+    card.className = "shape";
+    card.innerHTML = `<div class="head"><span class="name"></span><button type="button">Hapus</button></div>
+      <div class="path"></div>
+      <label>Kolom pengenal wilayah <select></select></label>
+      <p class="note"></p>`;
+    card.querySelector(".name").textContent = s.name;
+    card.querySelector("button").setAttribute("aria-label", "Hapus shapefile " + s.name);
+    card.querySelector("button").addEventListener("click", () => { state.shapes.splice(i, 1); renderShapes(); });
+    const p = card.querySelector(".path");
+    p.textContent = s.path; p.title = s.path;
+    const sel = card.querySelector("select");
+    for (const c of s.columns || []) {
+      const o = document.createElement("option");
+      o.value = c.name;
+      o.textContent = `${c.name} (${c.unique} nilai: ${c.examples.join(", ")}${c.unique > 3 ? ", …" : ""})`;
+      sel.append(o);
+    }
+    if (!s.columns || !s.columns.some(c => c.name === s.id_field)) {   // a field the file does not have
+      const o = document.createElement("option");
+      o.value = ""; o.textContent = s.columns ? "Pilih kolom" : "Membaca…";
+      sel.prepend(o);
+    }
+    sel.value = s.id_field || "";
+    sel.addEventListener("change", () => { s.id_field = sel.value; validate(); });
+    const info = card.querySelector(".note");
+    if (s.error) { info.textContent = "✗ " + s.error; info.className = "err"; }
+    else if (s.crs) {
+      const regions = (s.columns || []).find(c => c.name === s.id_field);
+      info.textContent = `${s.crs}${s.crs === "EPSG:4326" ? "" : " → dikonversi ke derajat"} · ${s.polygons} poligon`
+        + (regions ? ` · ${regions.unique} wilayah` : "");
+    }
+    box.append(card);
+  });
+  validate();
+}
+async function loadShape(entry) {
+  try {
+    const info = await api("/api/shape_info", {path: entry.path});
+    Object.assign(entry, {crs: info.crs, polygons: info.polygons, columns: info.columns, error: ""});
+    if (!entry.id_field && info.columns.length) {
+      const unique = info.columns.filter(c => c.unique === info.polygons);   // one value per polygon first
+      entry.id_field = (unique[0] || info.columns[0]).name;
+    }
+  } catch (err) {
+    entry.error = err.message; entry.columns = [];
+  }
+  renderShapes();
+}
+$("shape-add").addEventListener("click", async () => {
+  const last = state.shapes.length ? state.shapes[state.shapes.length - 1].path : state.gsmap_folder;
+  const p = await pick("shp", folderOf(last));
+  if (!p) return;
+  const stem = p.replace(/^.*[\\/]/, "").replace(/\.shp$/i, "").toLowerCase().replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "") || "shape";
+  const entry = {name: uniqueName(stem), path: p, id_field: ""};
+  state.shapes.push(entry);
+  renderShapes();
+  loadShape(entry);
+});
+
+/* points */
+async function setPoints(path) {
+  state.points_file = path; state.points_ok = false;
+  showPath($("points-path"), path);
+  const out = $("points-check");
+  if (!path) { out.textContent = ""; validate(); return; }
+  try {
+    const p = await api("/api/points_info", {path});
+    state.points_ok = true;
+    out.textContent = `✓ ${p.count} titik: ${p.names.join(", ")}${p.count > p.names.length ? ", …" : ""}`;
+    out.className = "check ok";
+  } catch (err) {
+    out.textContent = "✗ " + err.message;
+    out.className = "check bad";
+  }
+  validate();
+}
+$("points-browse").addEventListener("click", async () => {
+  const p = await pick("csv", folderOf(state.points_file));
+  if (p) setPoints(p);
+});
+
+/* output folder */
+$("out-browse").addEventListener("click", async () => {
+  const p = await pick("folder", state.output_folder);
+  if (p) { state.output_folder = p; showPath($("out-path"), p); validate(); }
+});
+
+/* period and advanced */
+function periodNote() {
+  const h = String(Math.round(Number($("day_start_hour").value) || 0)).padStart(2, "0");
+  $("period-note").textContent = `Tanggal hari hujan: ${h}.00 sampai ${h}.00 esok harinya (${$("time_zone").value}),`
+    + " kedua tanggal ikut penuh.";
+}
+for (const id of ["min_lon", "max_lon", "min_lat", "max_lat", "start_date", "end_date", "day_start_hour", "time_zone"]) {
+  $(id).addEventListener("input", () => { periodNote(); validate(); });
+}
+function checks(id, options, chosen) {
+  const row = $(id);
+  const labels = {hourly: "jam-jaman", daily: "harian", monthly: "bulanan", yearly: "tahunan", max_daily: "maks. harian"};
+  for (const o of options) {
+    const l = document.createElement("label");
+    l.innerHTML = '<input type="checkbox"> <span></span>';
+    l.querySelector("input").value = o;
+    l.querySelector("input").checked = chosen.includes(o);
+    l.querySelector("input").addEventListener("change", validate);
+    l.querySelector("span").textContent = labels[o] || o;
+    row.append(l);
+  }
+}
+const checked = id => [...$(id).querySelectorAll("input:checked")].map(i => i.value);
+
+/* ---- validation: messages beside the fields; true when the form can run.
+   refresh=false only checks: the run button must not reset the summary it relies on. ---- */
+function validate(refresh = true) {
+  const e = {region: "", period: "", out: "", adv: ""};
+  const region = state.mode === "thiessen" ? "shape" : state.extract_region;
+  if (region === "box") {
+    const [a, b, c, d] = ["min_lon", "max_lon", "min_lat", "max_lat"].map(i => Number($(i).value));
+    if ([a, b, c, d].some(Number.isNaN) || ["min_lon", "max_lon", "min_lat", "max_lat"].some(i => $(i).value === ""))
+      e.region = "Isi keempat batas kotak.";
+    else if (!(a < b && c < d)) e.region = "Bujur min harus < bujur maks, lintang min < lintang maks.";
+    else if (a < -180 || b > 180 || c < -90 || d > 90) e.region = "Bujur -180..180, lintang -90..90.";
+  } else if (region === "shape") {
+    if (!state.shapes.length) e.region = state.mode === "thiessen" ? "Thiessen perlu minimal satu shapefile."
+                                                                    : "Tambah minimal satu shapefile.";
+    else if (state.shapes.some(s => s.error)) e.region = "Ada shapefile yang tidak bisa dipakai; hapus atau ganti.";
+    else if (state.shapes.some(s => !s.id_field)) e.region = "Pilih kolom pengenal tiap shapefile.";
+  } else if (!state.points_file) e.region = "Pilih berkas titik (.csv).";
+  else if (!state.points_ok) e.region = "Berkas titik tidak bisa dipakai.";
+  const s = $("start_date").value, t = $("end_date").value;
+  if (!s || !t) e.period = "Isi tanggal awal dan akhir.";
+  else if (t < s) e.period = "Tanggal akhir sebelum tanggal awal.";
+  if (!state.output_folder) e.out = "Pilih folder hasil.";
+  const h = Number($("day_start_hour").value);
+  if (!Number.isInteger(h) || h < 0 || h > 23) e.adv = "Jam awal hari hujan harus bilangan bulat 0-23.";
+  else if (state.mode !== "visualize" && !checked("rain_outputs").length) e.adv = "Centang minimal satu tabel hujan.";
+  else if (state.mode === "visualize" && !checked("map_outputs").length) e.adv = "Centang minimal satu jenis peta.";
+  $("region-err").textContent = e.region;
+  $("period-err").textContent = e.period;
+  $("out-err").textContent = e.out;
+  $("adv-err").textContent = e.adv;
+  if (e.adv) $("advanced").open = true;
+  const ready = state.data_ok && !Object.values(e).some(Boolean);
+  if (refresh) scheduleSummary(ready);
+  return ready;
+}
+
+/* ---- summary: asked from the program a moment after the last change ---- */
+let sumTimer = null, sumSeq = 0, summaryOk = false, running = false;
+function runButton() {
+  $("run").disabled = running || !summaryOk;
+  $("run-note").textContent = running ? "Sedang berjalan…" : summaryOk ? "" : "Jalankan aktif setelah ringkasan siap.";
+}
+function scheduleSummary(ready) {
+  clearTimeout(sumTimer);
+  summaryOk = false;
+  runButton();
+  if (!ready) {
+    $("sum").hidden = true;
+    $("sum-msg").textContent = state.data_ok ? "Lengkapi isian di atas." : "Pilih folder data GSMaP yang benar.";
+    $("sum-msg").className = "check";
+    return;
+  }
+  $("sum-msg").textContent = "Menghitung ringkasan…";
+  $("sum-msg").className = "check";
+  sumTimer = setTimeout(updateSummary, 700);
+}
+async function updateSummary() {
+  const seq = ++sumSeq;
+  try {
+    const s = await api("/api/summary", formValues());
+    if (seq !== sumSeq) return;                       // a newer change is on its way
+    if (s.ok) {
+      summaryOk = true;
+      runButton();
+      $("sum").textContent = s.lines.join("\n");
+      $("sum").hidden = false;
+      $("sum-msg").textContent = s.values > 200e6 ? "Ukuran sangat besar: perkecil wilayah atau periode." : "";
+      $("sum-msg").className = "check " + (s.values > 200e6 ? "bad" : "");
+    } else {
+      $("sum").hidden = true;
+      $("sum-msg").textContent = "✗ " + s.message;
+      $("sum-msg").className = "check bad";
+    }
+  } catch (err) {
+    if (seq !== sumSeq) return;
+    $("sum").hidden = true;
+    $("sum-msg").textContent = "✗ " + err.message;
+    $("sum-msg").className = "check bad";
+  }
+}
+
+/* ---- run: start, follow the messages, show the result folders ---- */
+const FORM_CONTROLS = "main section:not(#run-sec) button, main section input, main section select, #quit";
+function lockForm(lock) {
+  for (const el of document.querySelectorAll(FORM_CONTROLS)) {
+    if (lock) { el.dataset.wasDisabled = el.disabled; el.disabled = true; }
+    else { el.disabled = el.dataset.wasDisabled === "true"; delete el.dataset.wasDisabled; }
+  }
+}
+function minutes(sec) { return sec < 60 ? `${sec} detik` : `${Math.floor(sec / 60)} menit ${sec % 60} detik`; }
+let logNext = 0;
+async function follow() {
+  try {
+    const j = await api("/api/job", {since: logNext});
+    if (j.lines.length) {
+      const log = $("log");
+      const atEnd = log.scrollTop + log.clientHeight >= log.scrollHeight - 20;
+      log.textContent += (log.textContent ? "\n" : "") + j.lines.join("\n");
+      if (atEnd) log.scrollTop = log.scrollHeight;
+    }
+    logNext = j.next;
+    if (j.status === "running") {
+      $("run-msg").textContent = `Berjalan… ${minutes(j.seconds)}`;
+      $("run-msg").className = "check";
+      return setTimeout(follow, 1000);
+    }
+    running = false;
+    lockForm(false);
+    runButton();
+    $("run-msg").textContent = j.status === "done" ? `✓ Selesai dalam ${minutes(j.seconds)}.`
+                                                   : `✗ Gagal setelah ${minutes(j.seconds)}: ${j.error}`;
+    $("run-msg").className = "check " + (j.status === "done" ? "ok" : "bad");
+    showResults(j.results || []);
+  } catch (err) {
+    $("run-msg").textContent = "✗ Program tidak tersambung: " + err.message;
+    $("run-msg").className = "check bad";
+  }
+}
+function showResults(folders) {
+  const box = $("results");
+  box.replaceChildren();
+  for (const f of folders) {
+    const row = document.createElement("div");
+    row.className = "result";
+    row.innerHTML = "<span><code></code> · <span class='n'></span></span><button type='button'>Buka folder</button>";
+    row.querySelector("code").textContent = f.name;
+    row.querySelector(".n").textContent = `${f.files} berkas`;
+    const b = row.querySelector("button");
+    b.setAttribute("aria-label", "Buka folder " + f.name);
+    b.addEventListener("click", () => api("/api/open_folder", {path: f.path}).catch(err => alertRow(row, err)));
+    box.append(row);
+  }
+}
+function alertRow(row, err) {
+  const p = document.createElement("p");
+  p.className = "err"; p.textContent = err.message;
+  row.append(p);
+}
+$("run").addEventListener("click", async () => {
+  if (!summaryOk || !validate(false)) return;
+  running = true;
+  runButton();
+  $("run-sec").hidden = false;
+  $("log").textContent = "";
+  $("results").replaceChildren();
+  $("run-msg").textContent = "Menyimpan pilihan dan memulai…";
+  $("run-msg").className = "check";
+  logNext = 0;
+  lockForm(true);
+  try {
+    const r = await api("/api/run", formValues());
+    if (!r.ok) throw new Error(r.message);
+    $("run-sec").scrollIntoView({behavior: "smooth", block: "start"});
+    follow();
+  } catch (err) {
+    running = false;
+    lockForm(false);
+    runButton();
+    $("run-msg").textContent = "✗ " + err.message;
+    $("run-msg").className = "check bad";
+  }
+});
+
+/* everything the run needs */
+function formValues() {
+  return {mode: state.mode, gsmap_folder: state.gsmap_folder, extract_region: state.extract_region,
+          min_lon: $("min_lon").value, max_lon: $("max_lon").value, min_lat: $("min_lat").value, max_lat: $("max_lat").value,
+          shapes: state.shapes.map(s => ({name: s.name, path: s.path, id_field: s.id_field})),
+          points_file: state.points_file, start_date: $("start_date").value, end_date: $("end_date").value,
+          output_folder: state.output_folder, time_zone: $("time_zone").value,
+          day_start_hour: $("day_start_hour").value, rain_outputs: checked("rain_outputs"),
+          map_outputs: checked("map_outputs")};
+}
+
+/* ---- start and stop ---- */
+const status = $("status");
+api("/api/info").then(info => {
+  status.textContent = "Tersambung ke program";
+  status.className = "status ok";
+  $("where").innerHTML = "Program: <code></code>";
+  document.querySelector("#where code").textContent = info.program_dir;
+  const v = info.values, o = info.options;
+  for (const id of ["min_lon", "max_lon", "min_lat", "max_lat", "start_date", "end_date", "day_start_hour"]) $(id).value = v[id];
+  for (const z of o.time_zones) $("time_zone").append(new Option(z, z));
+  $("time_zone").value = v.time_zone;
+  checks("rain_outputs", o.rain_outputs, v.rain_outputs);
+  checks("map_outputs", o.map_outputs, v.map_outputs);
+  state.extract_region = o.regions.includes(v.extract_region) ? v.extract_region : "box";
+  state.output_folder = v.output_folder;
+  showPath($("out-path"), v.output_folder);
+  state.shapes = v.shapes.map(s => ({...s}));
+  renderShapes();
+  state.shapes.forEach(loadShape);
+  periodNote();
+  render();
+  setData(v.gsmap_folder || "");
+  if (v.points_file) setPoints(v.points_file);
+}).catch(() => {
+  status.textContent = "Program tidak tersambung. Jalankan run.bat lagi.";
+  status.className = "status bad";
+});
+$("quit").addEventListener("click", async () => {
+  try { await api("/api/quit"); } catch (e) { /* already closed */ }
+  status.textContent = "Program ditutup. Tab ini boleh ditutup.";
+  status.className = "status";
+});
+</script>
+</body>
+</html>

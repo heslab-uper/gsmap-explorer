@@ -38,11 +38,17 @@ def pilih_mode():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", choices=MODES, help="Pilih mode (tanpa ini: menu)")
+    parser.add_argument("--mode", choices=MODES, help="Jalankan satu mode langsung (tanpa ini: halaman di peramban)")
     parser.add_argument("--config", default=os.path.join(PROGRAM_DIR, "config", "input.txt"),
                         help="Berkas config (bawaan: config/input.txt di samping run.py)")
     parser.add_argument("--no-menu", action="store_true",
                         help="Tanpa pertanyaan Lanjut? (mis. run terjadwal)")
+    parser.add_argument("--text-menu", action="store_true",
+                        help="Menu di jendela ini, bukan halaman di peramban")
     args = parser.parse_args()
-    mode = args.mode if args.mode else pilih_mode()
-    run_pipeline(mode=mode, config_path=args.config, menu=not args.no_menu)
+    if args.mode or args.text_menu:
+        mode = args.mode if args.mode else pilih_mode()
+        run_pipeline(mode=mode, config_path=args.config, menu=not args.no_menu)
+    else:   # run.bat without arguments: the page in the browser
+        from apps.webui import serve
+        serve(args.config)
