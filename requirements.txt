@@ -1,11 +1,9 @@
 numpy>=1.24
 pandas>=1.5
 matplotlib>=3.7
-xarray>=2023.1
 netCDF4>=1.6
 cartopy>=0.22
 geopandas>=0.13
 shapely>=2.0
 pyproj>=3.5
-fiona>=1.9
-scipy>=1.10
+rasterio>=1.3

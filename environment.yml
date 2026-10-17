@@ -1,27 +1,16 @@
-name: base
+# Packages of gsmap-explorer. install.bat creates the env in env\ from this file:
+#   conda env create -p env -f environment.yml
 channels:
   - conda-forge
 dependencies:
   - python=3.13
-
-  # core
   - numpy
   - pandas
-
-  # netcdf
-  - xarray
-  - netcdf4
-
-  # plotting
   - matplotlib
+  - netcdf4
   - cartopy
-
-  # GIS
   - geopandas
   - shapely
   - pyproj
-  - fiona
-
-  # optional
-  - scipy
-  - tqdm
+  - rasterio=1.5.0      # 1.5.2 + libgdal-core 3.13.3 fails to import (DLL _warp), 2026-10-17
+  - libgdal-core=3.12

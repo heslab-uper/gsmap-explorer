@@ -1,4 +1,4 @@
-"""Hourly series: regular index, window sums, fixed-day totals, annual maxima.
+"""Hourly series: fixed-day totals, monthly and yearly totals, annual maxima.
 
 A series is a ``pandas.DataFrame`` on a regular, strictly increasing hourly
 ``DatetimeIndex`` (local time, each label marking the END of its hour) with
@@ -6,8 +6,7 @@ one column per region or grid point. Missing hours are NaN rows and are never
 filled; a window, day or year holding NaN gives NaN (years: see
 ``compute_annual_maxima``).
 
-``compute_window_sums``, ``compute_period_totals`` and
-``compute_annual_maxima`` are ported from heslab-stats 0.3.0
+``compute_period_totals`` and ``compute_annual_maxima`` are ported from heslab-stats 0.3.0
 (``series``, commit f0773d6, 2026-10-12); ``compute_daily_totals`` follows
 heslab-design-rainfall (``analysis.compute_daily_totals``).
 """
@@ -16,25 +15,6 @@ from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
-from numpy.lib.stride_tricks import sliding_window_view
-
-HOUR = pd.Timedelta(hours=1)
-
-
-def make_regular_hourly(values: pd.DataFrame) -> pd.DataFrame:
-    """Same series on every hour from its first to its last label; added hours are NaN.
-
-    GSMaP hours absent from the .nc files are the only gaps that can be
-    detected (the archive stores "no data" as 0), so they must become NaN
-    rows here, not zeros.
-    """
-    values = values.sort_index()
-    if values.index.has_duplicates:
-        raise ValueError("hourly series has duplicate time labels")
-    full = pd.date_range(values.index[0], values.index[-1], freq="h", name=values.index.name)
-    if not full.isin(values.index).sum() == len(values.index):
-        raise ValueError("time labels are not on whole hours")
-    return values.reindex(full)
 
 
 def _check_series(values: pd.DataFrame) -> np.ndarray:
@@ -47,18 +27,6 @@ def _check_series(values: pd.DataFrame) -> np.ndarray:
         if (steps != steps[0]).any():
             raise ValueError("index is not regular; add missing steps as NaN rows")
     return values.to_numpy(dtype=np.float64)
-
-
-def compute_window_sums(values: pd.DataFrame, n: int) -> pd.DataFrame:
-    """Sum of every ``n`` consecutive rows, labelled at the window's last row.
-
-    NaN for the first n - 1 rows and wherever the window holds NaN.
-    """
-    arr = _check_series(values)
-    out = np.full(arr.shape, np.nan)
-    if arr.shape[0] >= n:
-        out[n - 1:] = sliding_window_view(arr, n, axis=0).sum(axis=-1)
-    return pd.DataFrame(out, index=values.index, columns=values.columns)
 
 
 def compute_period_totals(values: pd.DataFrame, ends, *, length: int) -> pd.DataFrame:
@@ -150,14 +118,24 @@ def compute_annual_maxima(values: pd.DataFrame, *, year_start_month: int,
                         valid_fraction=pd.DataFrame(out_frac, index=year_index, columns=values.columns))
 
 
-def strict_totals(daily: pd.DataFrame, freq: str) -> pd.DataFrame:
-    """Sum of the days of each calendar month (``MS``) or year (``YS``); NaN unless every day is present."""
-    periods = daily.index.to_period("M" if freq == "MS" else "Y")
-    expected = pd.Series(periods.days_in_month if freq == "MS" else [366 if p.is_leap_year else 365 for p in periods],
-                         index=daily.index).groupby(periods).first()
+def strict_totals(daily: pd.DataFrame, freq: str, year_start_month: int = 1) -> pd.DataFrame:
+    """Sum of the days of each calendar month (``MS``) or year (``YS``); NaN unless every day is present.
+
+    A year starts on the first day of ``year_start_month`` (1 = calendar year,
+    11 = water year Nov-Oct) and is labelled by the calendar year it starts in.
+    """
+    idx = daily.index
+    if freq == "MS":
+        periods = idx.to_period("M").astype(str)
+        expected = pd.Series(idx.days_in_month, index=idx).groupby(periods).first()
+    else:
+        years = np.where(idx.month >= year_start_month, idx.year, idx.year - 1)
+        periods = pd.Index(years).astype(str)
+        starts = pd.to_datetime(pd.DataFrame({"year": years, "month": year_start_month, "day": 1}))
+        length = ((starts + pd.DateOffset(years=1)) - starts).dt.days.to_numpy()
+        expected = pd.Series(length, index=idx).groupby(periods).first()
     total = daily.groupby(periods).sum(min_count=1)
     complete = daily.notna().groupby(periods).sum().eq(expected, axis=0)
     out = total.where(complete)
-    out.index = out.index.astype(str)
     out.index.name = "month" if freq == "MS" else "year"
     return out

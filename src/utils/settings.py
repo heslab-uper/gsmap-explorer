@@ -9,6 +9,7 @@ The ``check_*`` functions take the text of one value and return it parsed
 functions.
 """
 
+import re
 from dataclasses import asdict, dataclass
 from datetime import date, datetime
 from pathlib import Path
@@ -177,31 +178,59 @@ def read_box(cfg: dict) -> tuple:
     return check_box([check(cfg, key, check_number, lo, hi) for key, lo, hi in BOX_KEYS])
 
 
-def read_shapefile_keys(cfg: dict) -> tuple[Path | None, str | None]:
-    """``shapefile`` and ``shapefile_id_field``; the file is opened to check its CRS and the field."""
+# ---- shapefiles: shape_<name> = <path> | <id field> -------------------------
+
+@dataclass(frozen=True)
+class Shape:
+    name: str
+    """The part after shape_ (a-z, 0-9, _): names the output folder of this shapefile."""
+    path: Path
+    id_field: str
+    """Column naming each region; polygons with the same value form one region."""
+
+
+def read_shapes(cfg: dict) -> list:
+    """Every ``shape_<name> = <path> | <id field>`` key (config/input.local.txt), checked: file, CRS, id field.
+
+    May be empty; the modes that need a shapefile say so.
+    """
     from core.shapefile import read_shapefile
 
-    text = optional(cfg, "shapefile")
-    if text is None:
-        return None, None
-    path = check(cfg, "shapefile", check_file)
-    field = get(cfg, "shapefile_id_field")
-    try:
-        read_shapefile(path, field)
-    except ValueError as exc:
-        raise SettingsError(f"config key 'shapefile' / 'shapefile_id_field': {exc}") from None
-    return path, field
+    shapes = []
+    for key, value in cfg.items():
+        if not key.startswith("shape_"):
+            continue
+        name = key[len("shape_"):]
+        if not re.fullmatch(r"[a-z0-9_]+", name):
+            raise SettingsError(f"config key '{key}': the name after shape_ uses a-z, 0-9 and _ only")
+        if value.count("|") != 1:
+            raise SettingsError(f"config key '{key}' = {value!r}; expected <path> | <id field>")
+        text, field = (p.strip() for p in value.split("|"))
+        path = resolve_path(text)
+        if not path.is_file():
+            raise SettingsError(f"config key '{key}': {path} not found")
+        try:
+            read_shapefile(path, field)
+        except ValueError as exc:
+            raise SettingsError(f"config key '{key}': {exc}") from None
+        shapes.append(Shape(name, path, field))
+    return shapes
 
 
-# ---- the modes extract, visualize, thiessen, analysis, all -------------------
+def shapes_bounds(shapes: list) -> tuple:
+    """(min_lon, max_lon, min_lat, max_lat) of all shapefiles together, EPSG:4326."""
+    from core.shapefile import read_shapefile
+
+    b = [read_shapefile(s.path).total_bounds for s in shapes]
+    return (min(x[0] for x in b), max(x[2] for x in b), min(x[1] for x in b), max(x[3] for x in b))
+
+
+# ---- the modes extract, visualize, thiessen ----------------------------------
 
 @dataclass(frozen=True)
 class Settings:
     gsmap_folder: Path
     output_folder: Path
-    shapefile: Path | None
-    """None: the region is the box (min_lon .. max_lat)."""
-    shapefile_id_field: str | None
     box: tuple
     """(min_lon, max_lon, min_lat, max_lat)."""
     margin: float
@@ -213,16 +242,51 @@ class Settings:
     """Last rain day (local)."""
     day_start_hour: int
     daily_date_label: str
+    year_start_month: int
+    """First month of a year for the yearly rain and the annual maximum (1 = calendar year)."""
+    min_valid_fraction: float
+    """An annual maximum is taken when at least this fraction of the days of the year is present."""
+    rain_outputs: list
+    """Tables written by extract and thiessen (``apps.rain_tables.RAIN_OUTPUTS``)."""
+    shapes: list
+    """Shapefiles of the shape_<name> keys (``Shape``), possibly empty."""
+    extract_region: str
+    """Mode extract: box, shape (each shape_<name>) or points (points_file)."""
+    points_file: Path | None
+    """CSV name,lat,lon of extract_region = points (checked only then)."""
 
     def describe(self) -> str:
         return "\n".join(f"  {k}: {v}" for k, v in asdict(self).items())
 
 
-def read_settings(cfg: dict, *, need_shapefile: bool) -> Settings:
-    """Check the shared keys of the config and return them."""
-    shapefile, field = read_shapefile_keys(cfg)
-    if need_shapefile and shapefile is None:
-        raise SettingsError("config key 'shapefile' is empty; mode thiessen needs a shapefile")
+def read_rain_outputs(cfg: dict) -> list:
+    from apps.rain_tables import RAIN_OUTPUTS
+    outputs = list_key(cfg, "rain_outputs")
+    if not outputs or any(o not in RAIN_OUTPUTS for o in outputs):
+        raise SettingsError(f"config key 'rain_outputs' = {outputs}; use one or more of {list(RAIN_OUTPUTS)}")
+    return [o for o in RAIN_OUTPUTS if o in outputs]
+
+
+EXTRACT_REGIONS = ("box", "shape", "points")
+
+
+def read_settings(cfg: dict, *, extract: bool = False, thiessen: bool = False) -> Settings:
+    """Check the shared keys of the config and return them (``extract``, ``thiessen``: also what that mode needs)."""
+    shapes = read_shapes(cfg)
+    extract_region = choice_key(cfg, "extract_region", EXTRACT_REGIONS)
+    points_file = None
+    if extract and extract_region == "shape" and not shapes:
+        raise SettingsError(f"extract_region = shape needs at least one key shape_<name> = <path> | <id field>; "
+                            f"{LOCAL_HINT}")
+    if thiessen and not shapes:
+        raise SettingsError(f"mode thiessen needs at least one key shape_<name> = <path> | <id field>; {LOCAL_HINT}")
+    if extract and extract_region == "points":
+        from apps.extract_points import read_points_file
+        points_file = check(cfg, "points_file", check_file)
+        try:
+            read_points_file(points_file)
+        except (ValueError, FileNotFoundError) as exc:
+            raise SettingsError(f"config key 'points_file': {exc}") from None
     start, end = check(cfg, "start_date", check_date), check(cfg, "end_date", check_date)
     if end < start:
         raise SettingsError(f"config key 'end_date' = {end} is before start_date = {start}")
@@ -230,8 +294,6 @@ def read_settings(cfg: dict, *, need_shapefile: bool) -> Settings:
     return Settings(
         gsmap_folder=check(cfg, "gsmap_folder", check_gsmap_folder),
         output_folder=check(cfg, "output_folder", check_output_folder),
-        shapefile=shapefile,
-        shapefile_id_field=field,
         box=read_box(cfg),
         margin=read_margin(cfg),
         time_zone=check(cfg, "time_zone", check_time_zone),
@@ -239,6 +301,12 @@ def read_settings(cfg: dict, *, need_shapefile: bool) -> Settings:
         end_date=end,
         day_start_hour=day_start_hour,
         daily_date_label=date_label,
+        year_start_month=int_key(cfg, "year_start_month", 1, 12),
+        min_valid_fraction=float_key(cfg, "min_valid_fraction", 0, 1),
+        rain_outputs=read_rain_outputs(cfg),
+        shapes=shapes,
+        extract_region=extract_region,
+        points_file=points_file,
     )
 
 

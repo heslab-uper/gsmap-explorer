@@ -25,30 +25,25 @@ output_folder = data/output
 # ========================
 # WILAYAH
 # ========================
-# Shapefile poligon: DAS, sub-DAS, atau batas administrasi; satu poligon atau
-# lebih. Wajib punya CRS (berkas .prj); CRS apa pun dikonversi ke WGS 1984
-# derajat (EPSG:4326). Kosong = tanpa shapefile:
-#   extract, visualize, analysis : wilayah dari kotak min_lon..max_lat
-#   thiessen                     : wajib diisi
-#   series (shape)               : batas luar seluruh poligon
-shapefile =
-# Kolom tabel atribut shapefile yang menamai tiap wilayah (mis. HydroID untuk
-# DAS, kode kabupaten untuk batas administrasi). Hujan wilayah (thiessen)
-# dihitung per nilai kolom ini; poligon bernilai sama digabung menjadi satu
-# wilayah. Wajib bila shapefile diisi.
-shapefile_id_field =
+# Shapefile (DAS, sub-DAS, batas administrasi) untuk extract (extract_region = shape) dan
+# thiessen: satu baris shape_<nama> = <path .shp> | <kolom pengenal> per berkas, di
+# config/input.local.txt (path mesin). Wajib ber-CRS (.prj); dikonversi ke EPSG:4326.
 # Kotak wilayah, derajat desimal WGS 1984 (lintang selatan negatif). Dipakai
-# bila shapefile kosong, dan oleh series (box). Contoh: Pulau Jawa.
+# oleh extract_region = box. Contoh: Pulau Jawa.
 # Syarat: min < max, bujur -180..180, lintang -90..90, beririsan dengan data.
 min_lon = 105
 max_lon = 115
 min_lat = -10
 max_lat = -5
-# Daftar titik untuk series (points): CSV dengan kolom name,lat,lon, derajat
+# Wilayah mode extract: box (min_lon..max_lat), shape (sel yang beririsan dengan poligon
+# tiap shape_<nama> di config/input.local.txt), points (sel yang memuat tiap titik
+# points_file). Semua ditambah region_margin_deg saat membaca (pemilik 2026-10-17).
+extract_region = box
+# Daftar titik untuk extract_region = points: CSV dengan kolom name,lat,lon, derajat
 # desimal, lintang selatan negatif. Tiap titik mengambil sel grid yang memuatnya.
 points_file = config/points.csv
 # Margin di tiap sisi batas luar wilayah (kotak atau shapefile), derajat (0..5).
-# Data yang diambil, peta, dan series (box, shape) mencakup wilayah + margin ini,
+# Data yang diambil, peta, dan extract (box, shape) mencakup wilayah + margin ini,
 # untuk tetangga poligon Thiessen atau interpolasi (pemilik 2026-10-17: 0.2).
 region_margin_deg = 0.2
 
@@ -66,23 +61,8 @@ time_zone = WIB
 start_date = 2026-01-01
 end_date = 2026-06-30
 
-# ========================
-# MODE SERIES (deret di titik, kotak, atau batas shapefile)
-# Nilai di bawah, dan kunci di atas, adalah bawaan menu; jawaban di menu hanya
-# berlaku untuk run itu. Dengan --no-menu nilai dipakai tanpa ditanya.
-# ========================
-# Wilayah: points (points_file), box (min_lon..max_lat), shape (batas luar shapefile)
-series_region = points
-# Keluaran, satu atau lebih: hourly, daily, monthly, yearly. Bulanan/tahunan =
-# jumlah hujan harian; kosong bila ada hari hilang atau bulan/tahun tidak penuh
-# di dalam periode.
-series_outputs = daily,monthly,yearly
-# Batas ukuran tabel jam-an (jumlah kolom x jumlah jam), bilangan bulat > 0.
-# Tanpa menu program berhenti bila terlampaui; dengan menu, ditanya.
-series_max_values = 50000000
-
 ################################################################
-# PETA (mode visualize, all; peta titik grid di extract, thiessen, analysis)
+# PETA (mode visualize: wilayah extract_region; peta map.png di extract dan thiessen)
 ################################################################
 # Peta mode visualize, satu atau lebih: hourly, daily, monthly, yearly. Per jam =
 # satu peta tiap jam (periode panjang = ribuan berkas). Bulanan/tahunan hanya
@@ -132,49 +112,12 @@ day_start_hour = 7
 # end: tanggal Kamis = Rabu 07.00 s.d. Kamis 07.00 (label jam 08.00 Rabu s.d.
 # 07.00 Kamis) (pemilik 2026-10-17; sebelumnya start, 2026-10-15).
 daily_date_label = end
-# Bulan awal tahun: 1 = tahun kalender; mis. 11 = tahun air Nov-Okt.
+# Tabel hujan yang ditulis extract dan thiessen, satu atau lebih: hourly (mm/jam),
+# daily (hari tetap day_start_hour), monthly, yearly (jumlah hari; kosong bila ada hari
+# hilang atau tidak utuh di periode), max_daily (hujan harian maksimum per tahun, dengan
+# tanggal dan fraksi data) (pemilik 2026-10-17).
+rain_outputs = hourly,daily,monthly,yearly,max_daily
+# Bulan awal tahun untuk yearly dan max_daily: 1 = tahun kalender; mis. 11 = tahun air Nov-Okt.
 year_start_month = 1
 # Tahun dipakai bila >= fraksi ini datanya ada (0 < f <= 1). 0.9 = 90 %.
 min_valid_fraction = 0.9
-
-################################################################
-# ANALISIS FREKUENSI / KALA ULANG (mode analysis, all)
-################################################################
-# Jumlah tahun lengkap minimum agar deret dianalisis (bilangan bulat >= 4).
-min_years = 10
-# Distribusi, metode momen (praktik SNI 2415:2016): Normal, LogNormal, Gumbel, LogPearson3
-distribution_list = Normal,LogNormal,Gumbel,LogPearson3
-# Distribusi terpilih: lolos Chi-kuadrat DAN Smirnov-Kolmogorov, Delta max terkecil
-# (pemilik 2026-10-08). Satu-satunya nilai: ks_chisquare
-distribution_selection = ks_chisquare
-# Kala ulang, tahun (> 1)
-return_periods = 2,5,10,25,50,100
-# Taraf nyata uji Chi-kuadrat dan Smirnov-Kolmogorov (0 < alpha <= 0.5)
-alpha = 0.05
-# Kelas Chi-kuadrat: sturges = 1 + 3.322 log10 n (dibulatkan) per deret, atau bilangan bulat >= 3
-chi_square_classes = sturges
-# Pengurang derajat bebas Chi-kuadrat: dk = kelas - 1 - nilai ini (praktik SNI: 2), 0..3
-chi_square_parameters_subtracted = 2
-# Plotting position uji Smirnov-Kolmogorov: weibull, gringorten, cunnane, hazen, california
-plotting_position = weibull
-
-################################################################
-# INTENSITAS / IDF (mode analysis, all)
-################################################################
-# mononobe: I = R24/24 (24/t)^(2/3) dari hujan harian rancangan;
-# idf: I = R_T(d)/d dari jumlah bergeser data jam-an GSMaP. Satu atau keduanya.
-intensity_methods = mononobe,idf
-# Durasi jumlah bergeser untuk idf, jam (bilangan bulat, minimal 3 nilai) (pemilik 2026-10-15)
-idf_durations_hours = 1,2,3,6,12
-# Rumus yang dicocokkan; terpilih = deviasi rata-rata terkecil: talbot, sherman, ishiguro
-idf_formulas = talbot,sherman,ishiguro
-# Durasi tabel intensitas, menit (minimal 3 nilai; idf hanya di dalam rentang idf_durations_hours)
-intensity_durations_minutes = 5,10,15,30,60,120,180,360,720,1440
-
-################################################################
-# KARAKTERISTIK HUJAN JAM-JAMAN (mode analysis, all)
-################################################################
-# Jam basah: hujan >= nilai ini, mm/jam (pemilik 2026-10-15: 0.1)
-wet_hour_threshold_mm = 0.1
-# Kejadian hujan dipisah bila jeda kering >= nilai ini, jam (pemilik 2026-10-15: 6)
-event_min_dry_gap_hours = 6

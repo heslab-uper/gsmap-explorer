@@ -1,25 +1,23 @@
 @echo off
-rem Jalankan dari folder gsmap-explorer (config\ dan data\ di sini), dari mana pun dibuka
+rem run: gsmap-explorer with the Python of env\ (made by install.bat), from this folder.
+rem python.exe is called directly, so GDAL_DATA is set here (lib-arsitektur.md section 9).
+rem Arguments are passed to run.py, e.g. run.bat --mode extract
+setlocal
 cd /d "%~dp0"
-
-echo ==========================
-echo   PILIH MODE PROGRAM
-echo ==========================
-echo 1. Extract CSV
-echo 2. Visualisasi
-echo 3. Hujan Regional (Thiessen)
-echo 4. Analisis Hujan (kala ulang, IDF, karakteristik jam-jaman)
-echo 5. Ekstraksi Deret Hujan (titik / box / batas shapefile)
-echo 6. Semua
-echo.
-
-set /p choice=Pilih opsi (1/2/3/4/5/6):
-
-if "%choice%"=="1" python run.py --mode extract
-if "%choice%"=="2" python run.py --mode visualize
-if "%choice%"=="3" python run.py --mode thiessen
-if "%choice%"=="4" python run.py --mode analysis
-if "%choice%"=="5" python run.py --mode series
-if "%choice%"=="6" python run.py --mode all
-
+set "PY=%~dp0env\python.exe"
+if exist "%PY%" (
+  set "GDAL_DATA=%~dp0env\Library\share\gdal"
+) else (
+  where python >nul 2>nul || goto :nopython
+  set "PY=python"
+  echo note: env\ not found, using the python on PATH ^(install.bat makes env\^)
+)
+"%PY%" run.py %*
+set "CODE=%ERRORLEVEL%"
 pause
+exit /b %CODE%
+
+:nopython
+echo Python not found: double-click install.bat first.
+pause
+exit /b 1

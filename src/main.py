@@ -1,139 +1,97 @@
-from core.local_time import rain_day_utc_window
-from core.reader import cells_in_box, find_month_files, grid_axes, read_netcdf
-from core.shapefile import read_shapefile
+"""One run of gsmap-explorer: extract, visualize or thiessen (README, config/input.txt)."""
+
 from dataclasses import replace
 
-from utils.config_reader import read_config_with_local
-from utils.settings import SettingsError, add_margin, read_map_settings, read_settings
-from utils.analysis_settings import read_analysis_settings
-from utils.relief import download_relief
-
-from apps.extract_csv import export_csv
+from apps.extract import extract_bounds, run_extract
 from apps.rain_grid import RainGrid
-from apps.visualize import plot_grid_points, plot_maps
-from apps.thiessen_analysis import polygon_thiesen
-from apps.hourly_series import load_hourly_series
-from apps.frequency_analysis import run_frequency_analysis
-from apps.hourly_characteristics import run_hourly_characteristics
-from apps.extract_series import run_series
-from apps.series_menu import Cancelled, ask_series_choice
+from apps.thiessen_analysis import run_thiessen
+from apps.visualize import plot_maps
+from core.local_time import rain_day_utc_window
+from core.reader import cells_in_box, find_month_files, grid_axes, read_netcdf
+from utils.config_reader import read_config_with_local
+from utils.relief import download_relief
+from utils.settings import SettingsError, add_margin, read_map_settings, read_settings, shapes_bounds
+
+MODES = ("extract", "visualize", "thiessen")
 
 
-def run_analysis(settings, analysis):
-    """Frequency analysis, intensity and hourly characteristics of the extracted hourly series."""
-    hourly, unit = load_hourly_series(settings)
-    out_dir = settings.output_folder / "analysis_output"
-    print(f"Analysis of {len(hourly.columns)} {unit} series, {hourly.index[0]} .. {hourly.index[-1]} "
-          f"({int(hourly.isna().all(axis=1).sum())} hours missing)")
-    run_frequency_analysis(hourly, unit, analysis, out_dir)
-    run_hourly_characteristics(hourly, unit, analysis, out_dir)
+def _stop(config_path, message):
+    print(f"\nGalat config ({config_path}): {message}")
+    raise SystemExit(1)
 
 
 def run_pipeline(mode="extract", config_path="config/input.txt", menu=True):
-    # ========================
-    # konfigurasi
-    # ========================
-    config, local_path, local_keys = read_config_with_local(config_path)
+    """Check the config, show what will be done, ask (unless ``menu`` is False), read the data, run the mode."""
+    try:
+        config, local_path, local_keys = read_config_with_local(config_path)
+    except (OSError, ValueError) as exc:      # missing file, key given twice
+        _stop(config_path, exc)
     print(f"Config: {config_path}")
     if local_path is not None:
         print(f"  local config {local_path}: {', '.join(local_keys)}")
 
-    # Series: region, period, outputs and zone chosen on screen (defaults from the config)
-    if mode == "series":
-        try:
-            choice = ask_series_choice(config, interactive=menu)
-            run_series(choice)
-        except Cancelled:
-            print("Dibatalkan.")
-        except (ValueError, FileNotFoundError) as exc:   # SettingsError is a ValueError
-            print(f"\nGalat: {exc}")
-            if not menu:
-                raise SystemExit(1)
-        return
-
     # Settings are checked before any data is read
     try:
-        settings = read_settings(config, need_shapefile=(mode == "thiessen"))
-        analysis = read_analysis_settings(config) if mode in ("analysis", "all") else None
+        settings = read_settings(config, extract=(mode in ("extract", "visualize")), thiessen=(mode == "thiessen"))
         maps = read_map_settings(config)
     except SettingsError as exc:
-        print(f"\nGalat config ({config_path}): {exc}")
-        raise SystemExit(1)
+        _stop(config_path, exc)
     print("Settings:")
     print(settings.describe())
-    if analysis is not None:
-        print("Analysis settings:")
-        print(analysis.describe())
     print(maps.describe())
-    if maps.relief_download:
+
+    # region read: extract_region (extract, visualize) or all shapefiles (thiessen), + region_margin_deg
+    region = shapes_bounds(settings.shapes) if mode == "thiessen" else extract_bounds(settings)
+    extent = list(add_margin(region, settings.margin))
+
+    # start_date .. end_date are local rain days; read the UTC hours they hold
+    start_date, end_date = rain_day_utc_window(settings.start_date, settings.end_date, settings.day_start_hour,
+                                               settings.daily_date_label, settings.time_zone)
+    list_nc_files, missing_months = find_month_files(settings.gsmap_folder, start_date, end_date)
+    if missing_months:
+        print(f"  no file for {len(missing_months)} month(s): {' '.join(missing_months)}")
+    if not list_nc_files:
+        _stop(config_path, f"no monthly .nc file under {settings.gsmap_folder} for "
+                           f"{settings.start_date} .. {settings.end_date}")
+    lat_axis, lon_axis = grid_axes(list_nc_files[0])
+    try:
+        rows, cols = cells_in_box(lat_axis, lon_axis, *extent)
+    except ValueError as exc:
+        _stop(config_path, f"region of {'shape_<name>' if mode == 'thiessen' else 'extract_region'}: {exc}")
+
+    hours = int((end_date - start_date).total_seconds() // 3600) + 1
+    what = {"extract": f"extract_region = {settings.extract_region}", "visualize": f"maps {', '.join(maps.outputs)}",
+            "thiessen": f"{len(settings.shapes)} shapefile(s)"}[mode]
+    print(f"\nRingkasan: {mode} ({what})")
+    print(f"  wilayah dibaca : lon {extent[0]:.2f}..{extent[1]:.2f}, lat {extent[2]:.2f}..{extent[3]:.2f} "
+          f"(margin {settings.margin:g})")
+    print(f"  periode        : hari hujan {settings.start_date} .. {settings.end_date} ({settings.time_zone}) "
+          f"= UTC {start_date:%Y-%m-%d %H:%M} .. {end_date:%Y-%m-%d %H:%M}")
+    print(f"  ukuran         : {len(rows) * len(cols)} sel x {hours} jam = "
+          f"{len(rows) * len(cols) * hours / 1e6:.1f} juta nilai jam-an")
+    print(f"  keluaran       : {settings.output_folder}")
+    if menu:
+        try:
+            answer = input("Lanjut? [Y/n]: ").strip().lower()
+        except EOFError:
+            answer = "n"
+        if answer in ("n", "no", "tidak", "t"):
+            print("Dibatalkan.")
+            return
+
+    if maps.relief_download and mode == "visualize":
         try:
             download_relief(maps.relief_file)
         except (OSError, ValueError) as exc:   # network, disk, unexpected file: the relief is optional
             print(f"  note: relief download failed ({exc}); maps without relief, tried again next run")
             maps = replace(maps, relief_file=None, relief_download=False)
 
-    # start_date .. end_date are local rain days; read the UTC hours they hold
-    start_date, end_date = rain_day_utc_window(settings.start_date, settings.end_date, settings.day_start_hour,
-                                               settings.daily_date_label, settings.time_zone)
-    print(f"  period: rain days {settings.start_date} .. {settings.end_date} ({settings.time_zone}) = "
-          f"UTC {start_date:%Y-%m-%d %H:%M} .. {end_date:%Y-%m-%d %H:%M} (start of hour)")
+    data_subset, times, lon, lat = read_netcdf(list_nc_files, start_date, end_date, extent=extent)
+    grid = RainGrid.from_read(data_subset, times, lon, lat, settings)
 
-    list_nc_files, missing_months = find_month_files(settings.gsmap_folder, start_date, end_date)
-    if missing_months:
-        print(f"  no file for {len(missing_months)} month(s): {' '.join(missing_months)}")
-    if not list_nc_files:
-        raise FileNotFoundError(f"no monthly .nc file under {settings.gsmap_folder} for "
-                                f"{settings.start_date} .. {settings.end_date}")
-
-    # ========================
-    # menentukan extent
-    # ========================
-    # region (shapefile bounds or box) + region_margin_deg on every side
-    if settings.shapefile is not None:
-        minx, miny, maxx, maxy = read_shapefile(settings.shapefile).total_bounds
-        region = (minx, maxx, miny, maxy)
-    else:
-        region = settings.box
-    extent = list(add_margin(region, settings.margin))
-    lat_axis, lon_axis = grid_axes(list_nc_files[0])
-    try:
-        cells_in_box(lat_axis, lon_axis, *extent)
-    except ValueError as exc:
-        print(f"\nGalat config ({config_path}): region of 'shapefile' / min_lon..max_lat: {exc}")
-        raise SystemExit(1)
-
-    # ========================
-    # Baca file NetCDF
-    # ========================
-    data_subset, times, XX_subset, YY_subset = read_netcdf(list_nc_files, start_date, end_date, extent=extent)
-    grid = RainGrid.from_read(data_subset, times, XX_subset, YY_subset, settings)
-
-    def export():
-        export_csv(data_subset, times, XX_subset, YY_subset, settings)
-        plot_grid_points(grid, settings, maps, extent, settings.output_folder / "csv_output" / "grid_points_map.png")
-
-    # ========================
-    # MODE CONTROL
-    # ========================
     if mode == "extract":
-        export()
-
+        run_extract(grid, settings, maps, extent)
     elif mode == "visualize":
         plot_maps(grid, settings, maps, extent)
-
-    elif mode == 'thiessen':
-        export()
-        polygon_thiesen(settings)
-
-    elif mode == "analysis":
-        export()
-        if settings.shapefile is not None:
-            polygon_thiesen(settings)
-        run_analysis(settings, analysis)
-
-    elif mode == "all":
-        export()
-        plot_maps(grid, settings, maps, extent)
-        if settings.shapefile is not None:
-            polygon_thiesen(settings)
-        run_analysis(settings, analysis)
+    else:
+        run_thiessen(grid, settings, maps, extent)

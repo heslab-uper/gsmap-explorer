@@ -1,6 +1,6 @@
-import sys
-import os
 import argparse
+import os
+import sys
 
 # supaya bisa akses src/ (di samping run.py, dari folder mana pun dijalankan)
 PROGRAM_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -12,61 +12,37 @@ for stream in (sys.stdout, sys.stderr):
     if hasattr(stream, "reconfigure"):
         stream.reconfigure(encoding="utf-8", errors="replace")
 
-from main import run_pipeline
+from main import MODES, run_pipeline  # noqa: E402
+
+LABELS = {"extract": "Extract (hujan jam-jaman, harian, bulanan, tahunan, maksimum harian)",
+          "visualize": "Visualisasi (peta hujan)",
+          "thiessen": "Thiessen (hujan wilayah per shapefile)"}
 
 
 def pilih_mode():
     print("=" * 30)
     print("      PILIH MODE PROGRAM")
     print("=" * 30)
-    print("1. Extract CSV")
-    print("2. Visualisasi")
-    print("3. Hujan Regional (Thiessen)")
-    print("4. Analisis Hujan (kala ulang, IDF, karakteristik jam-jaman)")
-    print("5. Ekstraksi Deret Hujan (titik / box / batas shapefile)")
-    print("6. Semua")
+    for k, m in enumerate(MODES, 1):
+        print(f"{k}. {LABELS[m]}")
     print()
-
-    mapping = {
-        "1": "extract",
-        "2": "visualize",
-        "3": "thiessen",
-        "4": "analysis",
-        "5": "series",
-        "6": "all"
-    }
-
     while True:
-        choice = input("Pilih opsi (1/2/3/4/5/6): ").strip()
-
-        if choice in mapping:
-            return mapping[choice]
-
+        try:
+            choice = input(f"Pilih opsi (1-{len(MODES)}): ").strip()
+        except EOFError:
+            raise SystemExit("Dibatalkan.") from None
+        if choice.isdigit() and 1 <= int(choice) <= len(MODES):
+            return MODES[int(choice) - 1]
         print("Pilihan tidak valid!\n")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-
-    parser.add_argument(
-        "--mode",
-        choices=["extract", "visualize", "thiessen", "analysis", "series", "all"],
-        help="Pilih mode"
-    )
-    parser.add_argument(
-        "--config",
-        default=os.path.join(PROGRAM_DIR, "config", "input.txt"),
-        help="Berkas config (bawaan: config/input.txt di samping run.py)"
-    )
-    parser.add_argument(
-        "--no-menu",
-        action="store_true",
-        help="Mode series: pakai nilai config tanpa pertanyaan di layar"
-    )
-
+    parser.add_argument("--mode", choices=MODES, help="Pilih mode (tanpa ini: menu)")
+    parser.add_argument("--config", default=os.path.join(PROGRAM_DIR, "config", "input.txt"),
+                        help="Berkas config (bawaan: config/input.txt di samping run.py)")
+    parser.add_argument("--no-menu", action="store_true",
+                        help="Tanpa pertanyaan Lanjut? (mis. run terjadwal)")
     args = parser.parse_args()
-
-    # Jika --mode tidak diberikan → tampilkan menu
     mode = args.mode if args.mode else pilih_mode()
-
     run_pipeline(mode=mode, config_path=args.config, menu=not args.no_menu)

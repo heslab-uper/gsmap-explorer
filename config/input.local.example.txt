@@ -4,3 +4,7 @@
 gsmap_folder =
 # Kosong = tanpa relief; data/basemap = relief Natural Earth diunduh otomatis ke sana.
 basemap_relief_file =
+# Shapefile untuk extract (extract_region = shape) dan thiessen, satu baris per berkas:
+#   shape_<nama> = <path .shp> | <kolom pengenal wilayah>
+# <nama>: huruf kecil, angka, _ ; menjadi nama folder keluaran. Contoh:
+# shape_das_citarum = D:\GIS\das_citarum.shp | HydroID

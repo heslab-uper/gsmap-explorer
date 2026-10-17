@@ -25,6 +25,7 @@ class RainGrid:
     lat: np.ndarray
     day_start_hour: int
     date_label: str
+    year_start_month: int = 1
 
     @classmethod
     def from_read(cls, values, times_utc, lon, lat, settings) -> "RainGrid":
@@ -36,7 +37,8 @@ class RainGrid:
         full = pd.date_range(first, last, freq="h", name="time")
         hourly = hourly[(hourly.index >= first) & (hourly.index <= last)].reindex(full)
         return cls(hourly=hourly, lon=np.asarray(lon), lat=np.asarray(lat),
-                   day_start_hour=settings.day_start_hour, date_label=settings.daily_date_label)
+                   day_start_hour=settings.day_start_hour, date_label=settings.daily_date_label,
+                   year_start_month=settings.year_start_month)
 
     @cached_property
     def daily(self) -> pd.DataFrame:
@@ -49,8 +51,9 @@ class RainGrid:
 
     @cached_property
     def yearly(self) -> pd.DataFrame:
-        """Index ``YYYY``; NaN where a day is missing or the year is not wholly in the period."""
-        return strict_totals(self.daily, "YS")
+        """Index ``YYYY`` (year from ``year_start_month``); NaN where a day is missing or the year is not
+        wholly in the period."""
+        return strict_totals(self.daily, "YS", self.year_start_month)
 
     def field(self, row: pd.Series) -> np.ndarray:
         """One row of a table as a (lat, lon) array."""

@@ -9,6 +9,7 @@ and their category names come from the config (``map_levels_*``,
 titles change between maps.
 """
 
+from dataclasses import replace
 from pathlib import Path
 
 import cartopy.crs as ccrs
@@ -23,7 +24,6 @@ import numpy as np                    # noqa: E402
 import pandas as pd                   # noqa: E402
 from matplotlib.colors import BoundaryNorm, ListedColormap   # noqa: E402
 
-from apps.extract_series import product_label   # noqa: E402
 from core.shapefile import read_shapefile       # noqa: E402
 
 PC = ccrs.PlateCarree()
@@ -39,6 +39,12 @@ LAND = "#ebe8e1"
 INK = "#3a3a3a"
 HATCH = "#8f8f8f"
 HALO = [pe.withStroke(linewidth=2.2, foreground="white")]
+
+
+def product_label(folder) -> str:
+    """Name of the product for the map footer: ``STD_V8_GA`` for ``.../STD/V8/GA/NC``, else the folder name."""
+    folder = Path(folder).resolve()
+    return "_".join(folder.parts[-4:-1]) if folder.name == "NC" else folder.name
 
 
 def _date_id(t) -> str:
@@ -77,6 +83,7 @@ def _edges(centres: np.ndarray) -> np.ndarray:
 
 def read_relief(path, extent):
     """Window of a grayscale relief raster over ``extent``: (array, [left, right, bottom, top])."""
+    import pyexpat  # noqa: F401 - before rasterio: its GDAL breaks the expat DLL otherwise (Windows, 2026-10-17)
     import rasterio
     from rasterio.windows import from_bounds
 
@@ -252,9 +259,15 @@ def map_extent(grid, margin_extent):
 
 
 def _regions(settings):
-    if settings.shapefile is None:
+    """The polygons of every shape_<name> in one table (column ``label``: value of its id field), or None."""
+    if not settings.shapes:
         return None
-    return read_shapefile(settings.shapefile, settings.shapefile_id_field)
+    import geopandas as gpd
+    parts = []
+    for s in settings.shapes:
+        g = read_shapefile(s.path, s.id_field)
+        parts.append(gpd.GeoDataFrame({"label": g[s.id_field].astype(str)}, geometry=g.geometry, crs=g.crs))
+    return gpd.GeoDataFrame(pd.concat(parts, ignore_index=True), crs="EPSG:4326")
 
 
 def plot_maps(grid, settings, maps, extent) -> None:
@@ -274,7 +287,7 @@ def plot_maps(grid, settings, maps, extent) -> None:
                 print(f"  {kind}: no map (no data in the period)")
             continue
         canvas = MapCanvas(map_extent(grid, extent), grid.lon, grid.lat, maps, settings, kind=kind,
-                           regions=regions, id_field=settings.shapefile_id_field)
+                           regions=regions, id_field="label")
         for k, (idx, row) in enumerate(table.iterrows(), 1):
             if kind == "hourly":
                 sub, name = f"{_date_id(idx)}, {idx:%H.%M} {tz}", f"rain_hourly_{idx:%Y%m%d_%H%M}.png"
@@ -298,21 +311,33 @@ def plot_maps(grid, settings, maps, extent) -> None:
     print(f"✅ Visualisasi tersimpan di: {out_dir}")
 
 
-def plot_grid_points(grid, settings, maps, extent, out: Path) -> None:
-    """Map of the extracted grid points over the period mean; point numbers as in koordinat.csv."""
+def plot_extract_map(grid, settings, maps, extent, cells, out: Path, *, regions=None, id_field=None,
+                     labels=None, title: str = "Extract") -> None:
+    """Map of one extract: the cells written (outlined unless all cells of the box are), the points and their
+    names (points), the shapefile regions (shape), over the period mean."""
     field, kind, what = grid.period_mean()
-    canvas = MapCanvas(map_extent(grid, extent), grid.lon, grid.lat, maps, settings, kind=kind,
-                       regions=_regions(settings), id_field=settings.shapefile_id_field, class_names=False)
-    lon2, lat2 = np.meshgrid(grid.lon, grid.lat)
-    canvas.ax.scatter(lon2.ravel(), lat2.ravel(), s=3, color="#1f1f1f", transform=PC, zorder=7, linewidths=0)
-    n = lon2.size
-    if n <= maps.label_max:
-        for i, (x, y) in enumerate(zip(lon2.ravel(), lat2.ravel()), 1):
-            canvas.ax.text(x, y, f" {i}", fontsize=6.5, color="#1f1f1f", va="bottom", transform=PC, zorder=7,
-                           path_effects=HALO)
-        note = "nomor = point_<n> di koordinat.csv dan hujan_grid.csv"
-    else:
-        note = f"{n} titik > map_label_max = {maps.label_max}: nomor titik lihat koordinat.csv"
-    canvas.draw(field, f"Titik grid hasil ekstraksi ({n} titik)", f"{what}; {note}", out)
+    le, ae = _edges(grid.lon), _edges(grid.lat)
+    view = [max(extent[0], le.min()), min(extent[1], le.max()), max(extent[2], ae.min()), min(extent[3], ae.max())]
+    if labels is not None:   # the point names are the labels of this map: no Natural Earth places beside them
+        maps = replace(maps, cities=0)
+    canvas = MapCanvas(view, grid.lon, grid.lat, maps, settings, kind=kind, regions=regions, id_field=id_field,
+                       class_names=False)
+    dlon = abs(grid.lon[1] - grid.lon[0]) if len(grid.lon) > 1 else 0.1
+    dlat = abs(grid.lat[1] - grid.lat[0]) if len(grid.lat) > 1 else 0.1
+    if regions is not None or labels is not None:
+        for x, y in zip(cells.cell_lon, cells.cell_lat):
+            canvas.ax.add_patch(plt.Rectangle((x - dlon / 2, y - dlat / 2), dlon, dlat, fill=False,
+                                              edgecolor="#c0392b", linewidth=0.9, transform=PC, zorder=6))
+    if labels is not None:
+        canvas.ax.scatter(cells.lon, cells.lat, s=10, color="#1f1f1f", transform=PC, zorder=7, linewidths=0)
+        if len(labels) <= maps.label_max:
+            for name, x, y in zip(labels, cells.lon, cells.lat):
+                canvas.ax.text(x, y, f" {name}", fontsize=7, va="bottom", color="#1f1f1f", transform=PC, zorder=7,
+                               path_effects=HALO)
+    note = "kotak merah = sel yang ditulis; nama kolom di cells.csv" if regions is not None or labels is not None \
+        else "semua sel di peta ditulis; nama kolom = lat_lon pusat sel (cells.csv)"
+    if title == "Thiessen":
+        note = "kotak merah = sel yang ditimbang; bobot per wilayah di weights.csv"
+    unit = "sel ditimbang" if title == "Thiessen" else "kolom"
+    canvas.draw(field, f"{title} {out.parent.name} ({len(cells)} {unit})", f"{what}; {note}", out)
     canvas.close()
-    print(f"  grid point map: {out}")
