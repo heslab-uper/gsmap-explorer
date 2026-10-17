@@ -82,6 +82,130 @@ choices are kept in `config\input.local.txt` (not in git).
 
 ---
 
+## 🖱️ Panduan pemakaian / How to use the page
+
+Halaman diisi dari atas ke bawah. Pesan merah di bawah sebuah bagian
+menyebut apa yang masih kurang; tombol **Jalankan** baru aktif setelah semua
+bagian benar dan ringkasan siap.
+
+**Jendela Telusuri.** Semua tombol *Telusuri* membuka jendela yang sama.
+Klik nama folder untuk masuk, **↑** untuk naik satu folder, **Drive** untuk
+pindah drive (C:, D:, ...). Untuk memilih *folder*, masuk ke folder itu lalu
+klik **Pilih folder ini**; untuk memilih *berkas* (`.shp`, `.csv`), klik
+nama berkasnya.
+
+### 1. Folder data GSMaP
+
+Pilih folder yang berisi berkas `.nc` bulanan satu produk, langsung atau di
+subfolder tahun (`2015\`, `2016\`, ...). Di bawahnya muncul produk dan bulan
+yang tersedia, misalnya `✓ STD_V8_GA, data tersedia 1998-01 .. 2026-09
+(345 bulan)`. Dua berkas untuk bulan yang sama ditolak.
+
+### 2. Menu
+
+| Menu | Gunanya | Hasil di folder hasil |
+|---|---|---|
+| **Extract** | hujan tiap sel grid di kotak, di wilayah shapefile, atau di titik | `extract_output\box`, `extract_output\<nama shapefile>`, `extract_output\points` |
+| **Visualisasi** | peta hujan jam-jaman, harian, bulanan, tahunan (kelas BMKG) | `visualization_output\<jenis peta>` |
+| **Thiessen** | hujan wilayah tiap poligon shapefile (bobot luas Thiessen) | `thiessen_output\<nama shapefile>` |
+
+### 3. Wilayah
+
+Thiessen selalu memakai shapefile; Extract dan Visualisasi memilih salah satu:
+
+- **Kotak**: isi bujur min/maks dan lintang min/maks dalam derajat desimal
+  (bujur timur positif, lintang selatan negatif), misalnya bujur 110.2 ..
+  110.6, lintang -8.1 .. -7.6. Program menambah 0.2° di tiap sisi.
+- **Shapefile**: klik **+ Tambah shapefile** dan pilih berkas `.shp`.
+  Berkas `.shx`, `.dbf` dan `.prj` dengan nama sama harus ada di sebelahnya
+  (`.prj` = sistem koordinat; tanpa itu shapefile ditolak). Kartu shapefile
+  menampilkan sistem koordinat, jumlah poligon dan wilayah. Pilih **Kolom
+  pengenal wilayah**: kolom yang menamai tiap wilayah (poligon dengan nilai
+  sama digabung jadi satu wilayah); tiap kolom ditampilkan dengan jumlah
+  nilai uniknya dan contohnya. Boleh lebih dari satu shapefile (misalnya DAS
+  dan kabupaten); masing-masing mendapat folder hasil sendiri, dinamai dari
+  nama berkasnya. **Hapus** melepas shapefile dari daftar (berkasnya tidak
+  terhapus).
+- **Titik**: pilih berkas `.csv` dengan kolom `name,lat,lon`, contohnya
+  `config\points.csv`:
+
+  ```
+  name,lat,lon
+  Jakarta,-6.175,106.827
+  Bandung,-6.917,107.619
+  ```
+
+### 4. Periode
+
+Tanggal awal dan akhir adalah *hari hujan* setempat: satu hari hujan
+berjalan dari jam awal hari (07.00) sampai 07.00 esok harinya, dan diberi
+tanggal hari berakhirnya. Kedua tanggal ikut penuh. Keterangan di bawah
+kolom tanggal menyebut jam dan zona waktu yang berlaku.
+
+### 5. Folder hasil
+
+Pilih folder tempat hasil ditulis; subfolder menurut menu (tabel di atas)
+dibuat sendiri. Bawaannya `data\output` di folder program, yang tidak masuk
+git. Menjalankan ulang dengan wilayah yang sama menimpa berkas di subfolder
+itu.
+
+### 6. Lanjutan (boleh dilewati)
+
+Klik **Lanjutan** untuk membuka:
+
+- **Zona waktu**: WIB, WITA, WIT atau UTC (label jam = akhir jam hujan).
+- **Jam awal hari hujan** (0-23, bawaan 7).
+- **Tabel hujan yang ditulis** (Extract, Thiessen): jam-jaman, harian,
+  bulanan, tahunan, maks. harian. Berkas jam-jaman paling besar; matikan
+  bila tidak perlu.
+- **Jenis peta** (Visualisasi): jam-jaman, harian, bulanan, tahunan. Peta
+  jam-jaman membuat satu gambar per jam, jadi pakai untuk periode pendek.
+
+### 7. Ringkasan dan Jalankan
+
+Ringkasan dihitung sendiri setiap isian berubah: wilayah yang dibaca
+(dengan margin), periode dalam waktu setempat dan UTC, ukuran (sel × jam),
+dan folder hasil. Periksa, lalu klik **Jalankan**. Bila ukurannya sangat
+besar (lebih dari 200 juta nilai), halaman memperingatkan: perkecil wilayah
+atau periode.
+
+### 8. Proses dan hasil
+
+Selama berjalan isian dikunci dan log tampil di halaman (juga di jendela
+hitam). Di akhir muncul `✓ Selesai dalam … detik` atau `✗ Gagal …` dengan
+sebabnya, lalu daftar folder hasil beserta jumlah berkas baru; **Buka
+folder** membukanya di Explorer. Hanya satu proses pada satu waktu.
+
+Isi folder hasil Extract dan Thiessen: tabel hujan (`rain_hourly.csv`,
+`rain_daily.csv`, `rain_monthly.csv`, `rain_yearly.csv`, `rain_max_daily*.csv`;
+lihat *The five rain outputs*), `map.png` (sel yang dipakai), `cells.csv`
+(Extract) atau `weights.csv` (Thiessen), dan `choices.txt` (pilihan yang
+dipakai, untuk dicatat di laporan).
+
+### 9. Selesai
+
+Klik **Tutup program**, atau tutup jendela hitam. Pilihan terakhir tersimpan
+di `config\input.local.txt`, jadi `run.bat` berikutnya membuka halaman
+dengan isian yang sama.
+
+**Bila ada masalah**
+
+| Gejala | Yang dilakukan |
+|---|---|
+| Halaman tidak terbuka | salin alamat `http://127.0.0.1:…/` dari jendela hitam ke peramban |
+| Jendela hitam langsung tertutup / galat pustaka | jalankan `install.bat` lagi (juga setelah folder program dipindah) |
+| *Jalankan aktif setelah ringkasan siap* | masih ada pesan merah di salah satu bagian |
+| Shapefile ditolak | `.prj` tidak ada, atau berkas `.shx`/`.dbf` tidak di sebelahnya |
+| Halaman tidak merespons setelah jendela hitam ditutup | program sudah berhenti; klik dua kali `run.bat` lagi |
+
+English: fill the page top to bottom (data folder, menu, region, period,
+output folder, optional *Lanjutan*); red messages say what is missing.
+*Telusuri* opens a file browser: enter a folder and click **Pilih folder
+ini**, or click a file to choose it. Check the summary, click **Jalankan**,
+follow the log and use **Buka folder** to open the results.
+
+---
+
 ## ✅ Usage
 
 ### 1. Prepare the data

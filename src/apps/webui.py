@@ -70,8 +70,8 @@ def shape_info(path: str) -> dict:
     from core.shapefile import read_shapefile
 
     p = resolve_path(path)
+    read_shapefile(p)   # the checks of the program first: readable, CRS present, polygons present
     raw = gpd.read_file(p)
-    read_shapefile(p)   # the checks of the program: CRS present, polygons present
     columns = []
     for c in raw.columns:
         if c == "geometry":
