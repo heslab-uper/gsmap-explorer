@@ -14,7 +14,7 @@ Follows the choices of heslab-design-rainfall (owner 2026-10-08):
   the sliding durations; every formula is fitted per return period and the one
   with the smallest mean absolute deviation is selected.
 
-Output in ``<path_out>/analysis_output/``.
+Output in ``<output_folder>/analysis_output/``.
 """
 
 import json

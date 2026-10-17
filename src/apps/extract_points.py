@@ -14,7 +14,7 @@ def read_points_file(path) -> pd.DataFrame:
     """The point list, checked: columns name, lat, lon; unique names; numbers in range."""
     path = Path(path)
     if not path.exists():
-        raise FileNotFoundError(f"config key 'path_points': {path} not found")
+        raise FileNotFoundError(f"{path} not found")
     pts = pd.read_csv(path, dtype={"name": str})
     missing = {"name", "lat", "lon"} - set(pts.columns)
     if missing:

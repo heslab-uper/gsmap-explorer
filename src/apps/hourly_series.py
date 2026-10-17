@@ -1,27 +1,20 @@
-"""The hourly series the analyses run on: sub-watersheds (shapefile given) or grid points (no shapefile)."""
-
-from pathlib import Path
+"""The hourly series the analyses run on: shapefile regions (shapefile given) or grid points (no shapefile)."""
 
 import pandas as pd
 
 from core.series import make_regular_hourly
 
 
-def has_shapefile(config) -> bool:
-    shp = config.get("path_shp")
-    return bool(shp) and shp != "None"
-
-
-def load_hourly_series(config) -> tuple[pd.DataFrame, str]:
+def load_hourly_series(settings) -> tuple[pd.DataFrame, str]:
     """Hourly rain (mm) on a regular local end-of-hour index, and what the columns are.
 
-    With a shapefile: ``hujan_area_hourly.csv`` (one column per sub-watershed,
+    With a shapefile: ``hujan_area_hourly.csv`` (one column per region,
     written by the thiessen step); without: ``hujan_grid.csv`` (one column per
     grid point). Hours missing from the data are NaN rows.
     """
-    csv_dir = Path(config.get("path_out")) / "csv_output"
-    if has_shapefile(config):
-        path, unit = csv_dir / "hujan_area_hourly.csv", "sub-watershed"
+    csv_dir = settings.output_folder / "csv_output"
+    if settings.shapefile is not None:
+        path, unit = csv_dir / "hujan_area_hourly.csv", "region"
     else:
         path, unit = csv_dir / "hujan_grid.csv", "grid point"
     if not path.exists():

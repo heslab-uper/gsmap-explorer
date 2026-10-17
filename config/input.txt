@@ -1,88 +1,96 @@
-# ========================
-# PATH DATA
-# ========================
-# Folder berisi file GSMaP bulanan, juga di subfolder: *_YYYY_MM.nc (portal, contoh
-# data/raw/now_2026_05.nc) atau *_YYYYMM.nc (arsip, contoh 2015/gsmap_std_v8_ga_201501.nc).
-# Satu produk per folder.
-path_nc   = data/raw
-path_out  = data/output
-# Shapefile DAS/sub-DAS, contoh: data/shp/das.shp
-# None = pakai bounding box di bawah (mode thiessen wajib memakai shapefile)
-path_shp  = None
-# Daftar titik untuk mode series (wilayah points): CSV dengan kolom name,lat,lon (derajat
-# desimal, lintang selatan negatif). Nilai = sel grid 0.1 derajat yang memuat titik, tanpa interpolasi.
-path_points = config/points.csv
-path_temp = 'data/temp'
+# Config gsmap-explorer. Satu "kunci = nilai" per baris; "#" memulai komentar.
+# Path: absolut, atau relatif terhadap folder run.py. Nilai kosong = tidak diisi.
+# Semua kunci diperiksa sebelum data dibaca; kunci yang salah menghentikan
+# program dengan namanya.
 
 # ========================
-# EKSTRAKSI DERET (mode series): nilai bawaan menu, dipakai langsung dengan --no-menu.
-# Menu mengingat jawaban terakhir di config/series_last.txt (tidak masuk repo); hapus berkas
-# itu untuk kembali ke nilai di bawah.
+# DATA DAN KELUARAN
 # ========================
-# Folder data GSMaP: folder berisi berkas bulanan (*_YYYY_MM.nc dari portal, atau
-# <tahun>/*_YYYYMM.nc), atau folder arsip berisi beberapa produk, masing-masing dengan folder NC
-# (mis. STD/V8/GA/NC/2015/gsmap_std_v8_ga_201501.nc); menu menampilkan produk yang ada.
-gsmap_data_folder = data/raw
-# Produk bawaan, nama seperti di menu (mis. STD/V8/GA, NRT/V8/NGA, NOW)
-gsmap_product = STD/V8/GA
-# Wilayah: points (berkas path_points), box (min_lon..max_lat di bawah), shape (batas luar path_shp)
-series_selection = points
-# Keluaran, satu atau lebih: hourly, daily, monthly, yearly. Bulanan/tahunan = jumlah hari hujan,
-# kosong bila ada hari yang hilang atau bulan/tahun tidak penuh di dalam periode.
-series_outputs = hourly,daily,monthly,yearly
-# Tanpa menu, berhenti bila tabel jam-an melebihi nilai ini (kolom x jam); dengan menu selalu ditanya
-series_confirm_values = 50000000
+# Folder satu produk GSMaP (wajib diisi). Berkas bulanan boleh di subfolder
+# tahun atau langsung di folder ini:
+#   <folder>/<tahun>/<nama>_YYYYMM.nc   (mis. 2015/gsmap_std_v8_ga_201501.nc)
+#   <folder>/<nama>_YYYYMM.nc  atau  <folder>/<nama>_YYYY_MM.nc
+# Satu produk per folder: dua berkas untuk bulan yang sama = galat.
+gsmap_folder =
+# Folder keluaran; ganti sesuai kebutuhan. Tiap mode menulis ke subfoldernya
+# sendiri: csv_output/ (extract, thiessen, analysis), visualization_output/,
+# analysis_output/, series_output/. Dibuat bila belum ada.
+output_folder = data/output
 
 # ========================
-# NETCDF SETTINGS
+# WILAYAH
 # ========================
-var_name       = precipitation
-time_dim       = time
-lat_dim        = lat
-lon_dim        = lon
-
-#==========================
-# shapefile information
-#=========================
-das_field = HydroID  # tentukan nama field yang mewakili das_jawa
-
-# ========================
-# WAKTU / SUBSET
-# ========================
-# Tanggal (tahun-bulan-tanggal), kedua hari ikut seluruhnya. Mode series: tanggal hari hujan
-# lokal (day_start_hour s.d. day_start_hour besoknya); mode lain: tanggal UTC data (00-23 UTC).
-start_date     = 2026-01-01
-end_date       = 2026-06-30
-# Zona waktu keluaran: WIB, WITA, WIT. Label = akhir jam pencatatan, jadi zona + 1 jam:
-# WIB UTC+8, WITA UTC+9, WIT UTC+10 (pemilik 2026-10-15). Nilai lain = UTC awal jam.
-wilayah_waktu = WIB
-
-# ========================
-# SPATIAL BOUNDING BOX (jika tidak memiliki file shapefile bisa menggunakanan ini)
-# ========================
+# Shapefile poligon: DAS, sub-DAS, atau batas administrasi; satu poligon atau
+# lebih. Wajib punya CRS (berkas .prj); CRS apa pun dikonversi ke WGS 1984
+# derajat (EPSG:4326). Kosong = tanpa shapefile:
+#   extract, visualize, analysis : wilayah dari kotak min_lon..max_lat
+#   thiessen                     : wajib diisi
+#   series (shape)               : batas luar seluruh poligon
+shapefile =
+# Kolom tabel atribut shapefile yang menamai tiap wilayah (mis. HydroID untuk
+# DAS, kode kabupaten untuk batas administrasi). Hujan wilayah (thiessen)
+# dihitung per nilai kolom ini; poligon bernilai sama digabung menjadi satu
+# wilayah. Wajib bila shapefile diisi.
+shapefile_id_field =
+# Kotak wilayah, derajat desimal WGS 1984 (lintang selatan negatif). Dipakai
+# bila shapefile kosong, dan oleh series (box). Contoh: Pulau Jawa.
+# Syarat: min < max, bujur -180..180, lintang -90..90, beririsan dengan data.
 min_lon = 105
 max_lon = 115
 min_lat = -10
 max_lat = -5
+# Daftar titik untuk series (points): CSV dengan kolom name,lat,lon, derajat
+# desimal, lintang selatan negatif. Tiap titik mengambil sel grid yang memuatnya.
+points_file = config/points.csv
+
+# ========================
+# WAKTU
+# ========================
+# Zona waktu label keluaran: WIB, WITA, WIT, UTC. Jam GSMaP di .nc = UTC, label
+# AWAL jam; program selalu menambah 1 jam supaya label = AKHIR jam (hujan yang
+# sudah turun): WIB = UTC+8, WITA = UTC+9, WIT = UTC+10, UTC = UTC+1
+# (pemilik 2026-10-15, 2026-10-17). Nilai lain = galat.
+time_zone = WIB
+# Periode: tanggal hari hujan lokal (YYYY-MM-DD), kedua hari ikut penuh. Satu
+# hari = day_start_hour di time_zone sampai jam yang sama besoknya; berlaku
+# untuk semua mode.
+start_date = 2026-01-01
+end_date = 2026-06-30
+
+# ========================
+# MODE SERIES (deret di titik, kotak, atau batas shapefile)
+# Nilai di bawah, dan kunci di atas, adalah bawaan menu; jawaban di menu hanya
+# berlaku untuk run itu. Dengan --no-menu nilai dipakai tanpa ditanya.
+# ========================
+# Wilayah: points (points_file), box (min_lon..max_lat), shape (batas luar shapefile)
+series_region = points
+# Keluaran, satu atau lebih: hourly, daily, monthly, yearly. Bulanan/tahunan =
+# jumlah hujan harian; kosong bila ada hari hilang atau bulan/tahun tidak penuh
+# di dalam periode.
+series_outputs = hourly,daily,monthly,yearly
+# Batas ukuran tabel jam-an (jumlah kolom x jumlah jam), bilangan bulat > 0.
+# Tanpa menu program berhenti bila terlampaui; dengan menu, ditanya.
+series_max_values = 50000000
 
 ################################################################
-# HUJAN HARIAN DAN TAHUN (mode thiessen, analysis, all)
+# HUJAN HARIAN DAN TAHUN (semua mode)
 ################################################################
-# Hari tetap: 24 jam dari jam ini (waktu lokal wilayah_waktu) sampai jam yang
-# sama besoknya. 7 = 07.00-07.00, jam baca pos hujan manual (pemilik 2026-10-15).
+# Hari tetap: 24 jam dari jam ini sampai jam yang sama besoknya, jam label
+# lokal time_zone (0..23). 7 = 07.00-07.00, jam baca pos hujan manual
+# (pemilik 2026-10-15): hari D berisi label 08.00 D s.d. 07.00 D+1.
 day_start_hour = 7
 # Tanggal hujan harian: start = hari jendela dimulai, end = hari jendela berakhir.
-# start: tanggal D = 07.00 D s.d. 07.00 D+1, sama dengan data pos (CON-2026-03).
+# start: tanggal D = 07.00 D s.d. 07.00 D+1, seperti pembacaan pos hujan manual.
 daily_date_label = start
 # Bulan awal tahun: 1 = tahun kalender; mis. 11 = tahun air Nov-Okt.
 year_start_month = 1
-# Tahun dipakai bila >= fraksi ini datanya ada (0 < f <= 1). 0.9 = 90 % (templat hydrology_analysis).
+# Tahun dipakai bila >= fraksi ini datanya ada (0 < f <= 1). 0.9 = 90 %.
 min_valid_fraction = 0.9
 
 ################################################################
 # ANALISIS FREKUENSI / KALA ULANG (mode analysis, all)
 ################################################################
-# Jumlah tahun lengkap minimum agar deret dianalisis (>= 4). 10 = templat hydrology_analysis.
+# Jumlah tahun lengkap minimum agar deret dianalisis (bilangan bulat >= 4).
 min_years = 10
 # Distribusi, metode momen (praktik SNI 2415:2016): Normal, LogNormal, Gumbel, LogPearson3
 distribution_list = Normal,LogNormal,Gumbel,LogPearson3
@@ -110,8 +118,8 @@ intensity_methods = mononobe,idf
 idf_durations_hours = 1,2,3,6,12
 # Rumus yang dicocokkan; terpilih = deviasi rata-rata terkecil: talbot, sherman, ishiguro
 idf_formulas = talbot,sherman,ishiguro
-# Durasi tabel intensitas, menit (idf hanya di dalam rentang idf_durations_hours)
-duration_minutes = 5,10,15,30,60,120,180,360,720,1440
+# Durasi tabel intensitas, menit (minimal 3 nilai; idf hanya di dalam rentang idf_durations_hours)
+intensity_durations_minutes = 5,10,15,30,60,120,180,360,720,1440
 
 ################################################################
 # KARAKTERISTIK HUJAN JAM-JAMAN (mode analysis, all)

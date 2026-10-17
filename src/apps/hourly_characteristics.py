@@ -10,7 +10,7 @@ its first or after its last wet hour may be cut, and is marked
 Times are local end-of-hour labels: an event's ``start`` is the beginning
 of its first wet hour (label - 1 h), its ``end`` the end of its last wet hour.
 
-Output in ``<path_out>/analysis_output/``.
+Output in ``<output_folder>/analysis_output/``.
 """
 
 from pathlib import Path

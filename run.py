@@ -3,7 +3,8 @@ import os
 import argparse
 
 # supaya bisa akses src/ (di samping run.py, dari folder mana pun dijalankan)
-sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "src"))
+PROGRAM_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.join(PROGRAM_DIR, "src"))
 
 from main import run_pipeline
 
@@ -48,8 +49,8 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--config",
-        default="config/input.txt",
-        help="Berkas config (bawaan: config/input.txt)"
+        default=os.path.join(PROGRAM_DIR, "config", "input.txt"),
+        help="Berkas config (bawaan: config/input.txt di samping run.py)"
     )
     parser.add_argument(
         "--no-menu",

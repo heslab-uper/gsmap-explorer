@@ -9,6 +9,7 @@ from matplotlib import pyplot as plt
 from pyproj import Geod
 
 from core.series import compute_daily_totals, make_regular_hourly
+from core.shapefile import read_shapefile
 
 
 # # import testing
@@ -26,22 +27,19 @@ def geodesic_area(poly):
     return abs(area)
 
 
-def polygon_thiesen (config):
-    path_koordinat = Path(config.get("path_out")) / "csv_output" / "koordinat.csv"
+def polygon_thiesen (settings):
+    csv_dir = settings.output_folder / "csv_output"
+    path_koordinat = csv_dir / "koordinat.csv"
     df_koordinat = pd.read_csv(path_koordinat)
     points_name = df_koordinat['name'].values
     points = df_koordinat[['lon', 'lat']].values
-    path_hujan = Path(config.get("path_out")) / "csv_output" / "hujan_grid.csv"
+    path_hujan = csv_dir / "hujan_grid.csv"
 
     df_hujan = pd.read_csv(path_hujan, index_col=0, parse_dates=True)
-    path_shp = Path(config.get("path_shp"))
-    subdas = gpd.read_file(path_shp)
-    if subdas.crs is None:
-        subdas = subdas.set_crs("EPSG:4326")
-    elif subdas.crs.to_epsg() != 4326:
-        subdas = subdas.to_crs("EPSG:4326")
+    # regions: watersheds or administrative areas; same id value = one region
+    das_field = settings.shapefile_id_field
+    subdas = read_shapefile(settings.shapefile, das_field)
     bounds = subdas.total_bounds
-    das_field = config.get("das_field")
 
     print ("polygon thiesen processing...")
 
@@ -84,7 +82,7 @@ def polygon_thiesen (config):
 
     for sub_das in sub_das_values:
 
-        print(f"Processing sub-das: {sub_das}")
+        print(f"Processing region: {sub_das}")
 
         thiessen_subdas = (
             thiessen[thiessen[das_field] == sub_das]
@@ -113,16 +111,16 @@ def polygon_thiesen (config):
 
     # Fixed day from day_start_hour to the same hour next day, local time (owner 2026-10-15: 07-07)
     df_areal = make_regular_hourly(df_areal)
-    df_areal_daily = compute_daily_totals(df_areal, day_start_hour=int(config.get("day_start_hour")),
-                                          date_label=config.get("daily_date_label"))
+    df_areal_daily = compute_daily_totals(df_areal, day_start_hour=settings.day_start_hour,
+                                          date_label=settings.daily_date_label)
     df_areal_monthly = df_areal_daily.resample("ME").sum(min_count=1)
     df_max_daily_yearly = df_areal_daily.resample("YE").max()
 
 
-    df_areal.to_csv(Path(config.get("path_out")) / "csv_output" / "hujan_area_hourly.csv")
-    df_areal_daily.to_csv(Path(config.get("path_out")) / "csv_output" / "hujan_area_daily.csv")
-    df_areal_monthly.to_csv(Path(config.get("path_out")) / "csv_output" / "hujan_area_monthly.csv")
-    df_max_daily_yearly.to_csv(Path(config.get("path_out")) / "csv_output" / "hujan_max_daily_yearly.csv")
+    df_areal.to_csv(csv_dir / "hujan_area_hourly.csv")
+    df_areal_daily.to_csv(csv_dir / "hujan_area_daily.csv")
+    df_areal_monthly.to_csv(csv_dir / "hujan_area_monthly.csv")
+    df_max_daily_yearly.to_csv(csv_dir / "hujan_max_daily_yearly.csv")
 
 
 

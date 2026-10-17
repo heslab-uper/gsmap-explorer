@@ -1,14 +1,13 @@
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
-from pathlib import Path
 import numpy as np
 from datetime import timedelta
 from matplotlib.colors import BoundaryNorm
 
 from core.local_time import local_offset_hours
 
-def plot_map(data, times, XX, YY, config=None, extent=None):
+def plot_map(data, times, XX, YY, settings, extent=None):
 
     # ========================
     # SUBSET EXTENT (optional)
@@ -32,14 +31,14 @@ def plot_map(data, times, XX, YY, config=None, extent=None):
     # ========================
     # TIMEZONE
     # ========================
-    wilayah_waktu = config.get("wilayah_waktu")
+    time_zone = settings.time_zone
     # UTC start-of-hour -> local end-of-hour (core.local_time)
-    time_offset = local_offset_hours(wilayah_waktu)
+    time_offset = local_offset_hours(time_zone)
 
     # ========================
     # OUTPUT
     # ========================
-    output_dir = Path(config.get("path_out")) / "visualization_output"
+    output_dir = settings.output_folder / "visualization_output"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # ========================
@@ -149,7 +148,7 @@ def plot_map(data, times, XX, YY, config=None, extent=None):
         # ========================
 
         fig.suptitle(
-            f"Intensitas Hujan\n{strftime_time} ({wilayah_waktu})",
+            f"Intensitas Hujan\n{strftime_time} ({time_zone})",
             fontsize=12,
             fontweight="bold",
             y=0.98

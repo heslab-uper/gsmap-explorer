@@ -1,18 +1,17 @@
 
 import numpy as np
 import pandas as pd
-from pathlib import Path
 
 from core.local_time import local_offset_hours
 
 
-def export_csv(data_subset, times, XX_subset, YY_subset, path_output, config=None):
+def export_csv(data_subset, times, XX_subset, YY_subset, settings):
     # UTC start-of-hour -> local end-of-hour (core.local_time)
-    time_offset = local_offset_hours(config.get("wilayah_waktu"))
+    time_offset = local_offset_hours(settings.time_zone)
 
     times = [t + pd.Timedelta(hours=time_offset) for t in times]
 
-    path_output = Path(path_output) / "csv_output"
+    path_output = settings.output_folder / "csv_output"
     path_output.mkdir(parents=True, exist_ok=True)
 
     XX_subset, YY_subset = np.meshgrid(XX_subset, YY_subset)

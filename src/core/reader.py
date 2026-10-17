@@ -8,6 +8,20 @@ import numpy as np
 MONTH_FILE = re.compile(r"(\d{4})_?(\d{2})\.nc$")
 """Monthly file name ending: ``..._YYYY_MM.nc`` (portal) or ``..._YYYYMM.nc`` (archive)."""
 
+# Names in the GSMaP monthly .nc files: fixed by the files' format, not user choices.
+NC_PRECIPITATION = "precipitation"
+NC_TIME = "time"
+NC_LAT = "lat"
+NC_LON = "lon"
+
+
+def _var(nc, name):
+    """Variable ``name`` of an open file; a missing one is an error naming the file."""
+    if name not in nc.variables:
+        raise ValueError(f"{nc.filepath()}: no variable '{name}' (has {sorted(nc.variables)}); "
+                         f"not a GSMaP monthly file of this format")
+    return nc.variables[name]
+
 
 def find_month_files(path_nc, start_date, end_date) -> tuple[list[str], list[str]]:
     """Monthly .nc files of the months from start_date to end_date, searched in ``path_nc`` and its subfolders.
@@ -34,7 +48,7 @@ def find_month_files(path_nc, start_date, end_date) -> tuple[list[str], list[str
 
 
 def _times(nc) -> np.ndarray:
-    time_var = nc.variables['time']
+    time_var = _var(nc, NC_TIME)
     times = num2date(time_var[:], units=time_var.units, calendar=getattr(time_var, 'calendar', 'standard'))
     return np.array([datetime.datetime(t.year, t.month, t.day, t.hour, t.minute, t.second) for t in times])
 
@@ -59,7 +73,7 @@ def grid_cells(lat_axis, lon_axis, lats, lons) -> tuple[np.ndarray, np.ndarray]:
 def grid_axes(file_path) -> tuple[np.ndarray, np.ndarray]:
     """``lat`` and ``lon`` cell centres of a GSMaP file (float64; lat may run north to south)."""
     with Dataset(file_path, 'r') as nc:
-        return np.asarray(nc.variables['lat'][:], np.float64), np.asarray(nc.variables['lon'][:], np.float64)
+        return np.asarray(_var(nc, NC_LAT)[:], np.float64), np.asarray(_var(nc, NC_LON)[:], np.float64)
 
 
 def cells_in_box(lat_axis, lon_axis, min_lon, max_lon, min_lat, max_lat) -> tuple[np.ndarray, np.ndarray]:
@@ -96,7 +110,7 @@ def read_window(file_path_list, rows, cols, start_date, end_date):
     times_all, data_all = [], []
     for file_path in file_path_list:
         with Dataset(file_path, 'r') as nc:
-            lat, lon = np.asarray(nc.variables['lat'][:], np.float64), np.asarray(nc.variables['lon'][:], np.float64)
+            lat, lon = np.asarray(_var(nc, NC_LAT)[:], np.float64), np.asarray(_var(nc, NC_LON)[:], np.float64)
             if lat.shape != ref[0].shape or lon.shape != ref[1].shape or \
                     np.abs(lat - ref[0]).max() > 1e-3 or np.abs(lon - ref[1]).max() > 1e-3:
                 raise ValueError(f"{file_path}: lat/lon axes differ from {file_path_list[0]}")
@@ -104,7 +118,7 @@ def read_window(file_path_list, rows, cols, start_date, end_date):
             keep = (times >= start_date) & (times <= end_date)
             if not keep.any():
                 continue
-            block = nc.variables['precipitation'][:, i0:i1 + 1, j0:j1 + 1]
+            block = _var(nc, NC_PRECIPITATION)[:, i0:i1 + 1, j0:j1 + 1]
             block = np.ma.filled(np.ma.asarray(block, dtype=np.float64), np.nan)
             times_all.append(times[keep])
             data_all.append(block[keep][:, rows - i0][:, :, cols - j0])
@@ -131,7 +145,7 @@ def read_netcdf(file_path_list, start_date=None, end_date=None, extent=None):
 
     for file_path in file_path_list:
         with Dataset(file_path, 'r') as nc:
-            time_var = nc.variables['time']
+            time_var = _var(nc, NC_TIME)
             times = num2date(
             time_var[:],
             units=time_var.units,
@@ -145,7 +159,7 @@ def read_netcdf(file_path_list, start_date=None, end_date=None, extent=None):
             min_time = np.min(times)
             max_time = np.max(times)
 
-            data = nc.variables['precipitation'][:,:,:]
+            data = _var(nc, NC_PRECIPITATION)[:,:,:]
             mask = np.ones(data.shape[0], dtype=bool)
             data = data[:, lat_mask, :][:, :, lon_mask]
             # netCDF4 returns a MaskedArray: masked cells (_FillValue) become NaN, not the raw fill value
@@ -164,7 +178,7 @@ def read_netcdf(file_path_list, start_date=None, end_date=None, extent=None):
             # nc.close()
 
     if len (times_all) == 0:
-        return np.array([]), np.array([])
+        raise ValueError("no data in the period in the files found")
     
     times_all = np.concatenate(times_all)
     data_all = np.concatenate(data_all, axis=0)

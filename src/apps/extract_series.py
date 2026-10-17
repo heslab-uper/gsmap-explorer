@@ -27,13 +27,15 @@ import numpy as np
 import pandas as pd
 
 from apps.extract_points import read_points_file
-from core.local_time import local_offset_hours, to_local_end_labels
+from core.local_time import (TIME_ZONE_HOURS, local_offset_hours, rain_day_labels, rain_day_utc_window,
+                             to_local_end_labels)
 from core.reader import cells_in_box, find_month_files, grid_axes, grid_cells, read_window
 from core.series import compute_daily_totals
+from core.shapefile import read_shapefile
 
 SELECTIONS = ("points", "box", "shape")
 OUTPUTS = ("hourly", "daily", "monthly", "yearly")
-ZONES = ("WIB", "WITA", "WIT")
+ZONES = tuple(TIME_ZONE_HOURS)
 
 
 @dataclass
@@ -41,7 +43,7 @@ class SeriesChoice:
     """Everything one series run uses; printed and written to ``choices.txt``."""
 
     product: str
-    """Label of the product, e.g. ``STD/V8/GA`` (folder under the archive root)."""
+    """Label of the product from its folder name (``product_label``), e.g. ``STD_V8_GA``."""
     path_nc: str
     selection: str
     start: date
@@ -79,18 +81,10 @@ class SeriesChoice:
         return Path(self.path_out) / "series_output" / name
 
 
-def find_products(root) -> dict[str, Path]:
-    """Products under an archive root: every ``NC`` folder 1-3 levels down, keyed ``NOW``, ``STD/V8/GA``, ...
-
-    Only those levels are listed, never the daily .dat.gz folders.
-    """
-    root = Path(root)
-    found = {}
-    for pattern in ("*/NC", "*/*/NC", "*/*/*/NC"):
-        for nc in sorted(root.glob(pattern)):
-            if nc.is_dir():
-                found[nc.parent.relative_to(root).as_posix()] = nc
-    return found
+def product_label(folder) -> str:
+    """Name of the product for the output folder: ``STD_V8_GA`` for ``.../STD/V8/GA/NC``, else the folder name."""
+    folder = Path(folder).resolve()
+    return "_".join(folder.parts[-4:-1]) if folder.name == "NC" else folder.name
 
 
 def select_cells(choice: SeriesChoice, lat_axis, lon_axis) -> pd.DataFrame:
@@ -106,12 +100,7 @@ def select_cells(choice: SeriesChoice, lat_axis, lon_axis) -> pd.DataFrame:
     if choice.selection == "box":
         min_lon, max_lon, min_lat, max_lat = choice.box
     else:
-        import geopandas as gpd
-        gdf = gpd.read_file(choice.shapefile)
-        if gdf.crs is None:
-            raise ValueError(f"{choice.shapefile} has no CRS")
-        if gdf.crs.to_epsg() != 4326:
-            gdf = gdf.to_crs(epsg=4326)
+        gdf = read_shapefile(choice.shapefile)
         min_lon, min_lat, max_lon, max_lat = (float(v) for v in gdf.total_bounds)
         choice.notes.append(f"shapefile total bounds: lon {min_lon:.4f}..{max_lon:.4f}, lat {min_lat:.4f}..{max_lat:.4f}")
     rows, cols = cells_in_box(lat_axis, lon_axis, min_lon, max_lon, min_lat, max_lat)
@@ -124,10 +113,7 @@ def select_cells(choice: SeriesChoice, lat_axis, lon_axis) -> pd.DataFrame:
 
 def day_window_labels(choice: SeriesChoice) -> tuple[pd.Timestamp, pd.Timestamp]:
     """First and last local end-of-hour label of the rain days start .. end."""
-    h = pd.Timedelta(hours=choice.day_start_hour)
-    first_day = pd.Timestamp(choice.start) - (pd.Timedelta(days=1) if choice.date_label == "end" else pd.Timedelta(0))
-    last_day = pd.Timestamp(choice.end) - (pd.Timedelta(days=1) if choice.date_label == "end" else pd.Timedelta(0))
-    return first_day + h + pd.Timedelta(hours=1), last_day + pd.Timedelta(days=1) + h
+    return rain_day_labels(choice.start, choice.end, choice.day_start_hour, choice.date_label)
 
 
 def strict_totals(daily: pd.DataFrame, freq: str) -> pd.DataFrame:
@@ -153,8 +139,8 @@ def estimate(choice: SeriesChoice, n_cells: int) -> tuple[int, int]:
 def run_series(choice: SeriesChoice) -> Path:
     """Read, cut to the rain days, aggregate and write the chosen outputs; returns the output folder."""
     first_label, last_label = day_window_labels(choice)
-    off = pd.Timedelta(hours=local_offset_hours(choice.zone))
-    utc_first, utc_last = (first_label - off).to_pydatetime(), (last_label - off).to_pydatetime()
+    utc_first, utc_last = rain_day_utc_window(choice.start, choice.end, choice.day_start_hour, choice.date_label,
+                                              choice.zone)
     files, missing = find_month_files(choice.path_nc, utc_first, utc_last)
     if missing:
         choice.notes.append(f"no file for {len(missing)} month(s): {' '.join(missing)}")

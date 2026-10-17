@@ -79,22 +79,24 @@ conda env update -n base -f environment.yml
 ## 🚀 Cara cepat: deret hujan di titik, box, atau wilayah shapefile
 
 1. Unduh berkas GSMaP `.nc` bulanan dari https://heslab-uper.com/data/hujan-satelit
-   dan simpan di `data/raw/` (atau di folder lain; nanti diketik di menu).
+   ke satu folder per produk (boleh dengan subfolder tahun), lalu isi
+   `gsmap_folder` di `config/input.txt` dengan folder itu (atau ketik di menu).
 2. Klik dua kali `run.bat` (atau `python run.py`), pilih **5. Ekstraksi Deret Hujan**.
-3. Jawab pertanyaan di layar; tekan Enter untuk memakai nilai di dalam `[...]`:
-   folder data, produk, wilayah (1 titik dari `config/points.csv`, 2 box, 3 batas
+3. Jawab pertanyaan di layar; tekan Enter untuk memakai nilai config di dalam
+   `[...]`: folder data, wilayah (1 titik dari `config/points.csv`, 2 box, 3 batas
    luar shapefile), periode, keluaran (jam-jaman, harian, bulanan, tahunan) dan
-   zona waktu (WIB, WITA, WIT).
-4. Hasil ada di `data/output/series_output/`. Jawaban disimpan di
-   `config/series_last.txt` dan menjadi bawaan pada run berikutnya.
+   zona waktu (WIB, WITA, WIT, UTC). Jawaban hanya berlaku untuk run itu; untuk
+   mengubah bawaan, sunting `config/input.txt`.
+4. Hasil ada di `data/output/series_output/` (kunci `output_folder`).
 
 Waktu GSMaP adalah UTC dan menandai awal jam; keluaran memakai label akhir jam
 (hujan yang sudah tercatat), jadi zona + 1 jam: WIB = UTC + 8, WITA = UTC + 9,
-WIT = UTC + 10. Hari hujan = 07.00 sampai 07.00 esok harinya.
+WIT = UTC + 10, UTC = UTC + 1. Hari hujan = 07.00 sampai 07.00 esok harinya.
 
-**Quick start (English):** put the monthly `.nc` files in `data/raw/`, run
-`run.bat` (or `python run.py`), choose **5**, answer the questions (Enter keeps
-the value in `[...]`). Results go to `data/output/series_output/`.
+**Quick start (English):** set `gsmap_folder` in `config/input.txt` to the
+folder of the monthly `.nc` files, run `run.bat` (or `python run.py`), choose
+**5**, answer the questions (Enter keeps the config value in `[...]`). Results
+go to `data/output/series_output/`.
 
 ---
 
@@ -106,9 +108,10 @@ Download GSMaP NetCDF (`.nc`) data from:
 
 🔗 https://heslab-uper.com/data/hujan-satelit
 
-Place the monthly `.nc` files in `data/raw/` (or set `path_nc` to their folder;
-the series mode asks for the folder, default `gsmap_data_folder`).
-Data files are not included in this repository.
+Put the monthly `.nc` files of one product in one folder, directly or in year
+subfolders (`<folder>/2015/gsmap_std_v8_ga_201501.nc`), and set `gsmap_folder`
+to it. Files may be named `*_YYYYMM.nc` or `*_YYYY_MM.nc`; two files for the
+same month stop the program. Data files are not included in this repository.
 
 ### 2. Configure the input
 
@@ -120,22 +123,26 @@ config/input.txt
 
 Main keys:
 
-- `path_nc` — folder containing the `.nc` files
-- `path_out` — output folder
-- `path_shp` — watershed/sub-watershed shapefile, or `None` to use the bounding box (`min_lon`, `max_lon`, `min_lat`, `max_lat`)
-- `das_field` — shapefile attribute that identifies each sub-watershed (used by `thiessen`)
-- `start_date`, `end_date` — period (`YYYY-MM-DD`)
-- `wilayah_waktu` — local time zone of the output (`WIB`, `WITA`, `WIT`)
+Main keys (paths are absolute, or relative to the folder of `run.py`):
 
-The analysis keys (fixed day, frequency analysis, intensity, rain events)
-are explained by the comments in `config/input.txt`. They are checked before
-any data is read; a wrong key stops the program with its name.
+- `gsmap_folder` — folder of one GSMaP product (required)
+- `output_folder` — output folder (`data/output`)
+- `shapefile` — polygon shapefile (watersheds or administrative areas, with a CRS), or empty to use the box (`min_lon`, `max_lon`, `min_lat`, `max_lat`)
+- `shapefile_id_field` — shapefile column naming each region; polygons with the same value form one region (required with a shapefile)
+- `points_file` — CSV `name,lat,lon` of the series mode
+- `start_date`, `end_date` — first and last local rain day (`YYYY-MM-DD`), in every mode
+- `time_zone` — `WIB`, `WITA`, `WIT` or `UTC`
+
+Every key is explained by the comments in `config/input.txt` and checked
+before any data is read; a missing or wrong key stops the program with its
+name.
 
 **Time convention.** GSMaP time is UTC and marks the start of each hour.
-Output times are local and mark the end of the hour (rain that has fallen):
-UTC + 8 h for WIB (7 h time zone + 1 h), + 9 h for WITA, + 10 h for WIT.
+Output times mark the end of the hour (rain that has fallen): the time zone
++ 1 h, i.e. UTC + 8 h for WIB, + 9 h for WITA, + 10 h for WIT, + 1 h for UTC.
 Daily totals run from `day_start_hour` to the same hour next day (07.00–07.00
-by default), dated by the day the window starts.
+in the config), dated by the day the window starts. `start_date` .. `end_date`
+are such rain days, so the first and last day are whole.
 
 ### 3. Run the program
 
@@ -171,25 +178,23 @@ python run.py --mode series --config my_job/input.txt
 
 Asks on screen, with the config values as defaults (press Enter to keep one):
 
-1. **Data folder and product** — a folder of monthly files (default `data/raw`),
-   or an archive folder whose products each have an `NC` folder (e.g. `STD/V8/GA`,
-   `NRT/V8/NGA`, `NOW`), listed to choose from.
-   Monthly files may be named `*_YYYY_MM.nc` (portal) or `*_YYYYMM.nc`
-   (archive, also in year subfolders).
-2. **Region** — `points` (CSV `path_points` with columns `name`, `lat`, `lon`,
-   e.g. `config/points.csv`), `box` (`min_lon`, `max_lon`, `min_lat`, `max_lat`)
-   or `shape` (the total bounds of `path_shp`).
+1. **Data folder** — `gsmap_folder`, one product (see *Prepare the data*).
+2. **Region** — `series_region`: `points` (CSV `points_file` with columns
+   `name`, `lat`, `lon`, e.g. `config/points.csv`), `box` (`min_lon`, `max_lon`,
+   `min_lat`, `max_lat`) or `shape` (the total bounds of `shapefile`).
 3. **Period** — first and last rain day (local, `day_start_hour` to the same hour next day).
-4. **Outputs** — hourly, daily, monthly, yearly (one or more).
-5. **Time zone** — WIB, WITA, WIT. Labels mark the end of the recorded hour,
-   so the offset is the zone + 1 h: UTC + 8 h (WIB), + 9 h (WITA), + 10 h (WIT).
+4. **Outputs** — `series_outputs`: hourly, daily, monthly, yearly (one or more).
+5. **Time zone** — `time_zone`: WIB, WITA, WIT, UTC. Labels mark the end of the
+   recorded hour, so the offset is the zone + 1 h: UTC + 8 h (WIB), + 9 h (WITA),
+   + 10 h (WIT), + 1 h (UTC).
 
-The answers are saved in `series_last.txt` next to the config file and are the
-defaults of the next run (delete the file to return to `config/input.txt`).
-`--no-menu` takes the config values without asking (for scheduled runs).
+An answer changes that run only; the defaults are always the config values.
+`--no-menu` takes the config values without asking (for scheduled runs) and
+stops when the hourly table exceeds `series_max_values`.
 No interpolation: each column is one 0.1-degree cell; points in the same
 cell get identical series, boxes and shapes take every cell they overlap.
-Results in `<path_out>/series_output/<product>_<region>_<start>_<end>_<zone>/`:
+Results in `<output_folder>/series_output/<product>_<region>_<start>_<end>_<zone>/`,
+where `<product>` is the name of the data folder (`STD_V8_GA` for `.../STD/V8/GA/NC`):
 
 | File | Content |
 |---|---|
@@ -202,9 +207,10 @@ Results in `<path_out>/series_output/<product>_<region>_<start>_<end>_<zone>/`:
 
 ### Thiessen mode
 
-Requires `path_shp` (a polygon shapefile) and `das_field`. Thiessen polygons
-are built from the GSMaP grid points, clipped to each sub-watershed, and
-weighted by geodesic area. Results in `<path_out>/csv_output/`:
+Requires `shapefile` (a polygon shapefile with a CRS) and `shapefile_id_field`.
+Thiessen polygons are built from the GSMaP grid points, clipped to each region
+(each value of `shapefile_id_field`), and weighted by geodesic area. Results in
+`<output_folder>/csv_output/`:
 
 | File | Content |
 |---|---|
@@ -217,10 +223,10 @@ weighted by geodesic area. Results in `<path_out>/csv_output/`:
 
 ### Analysis mode
 
-Runs on the sub-watershed series (`hujan_area_hourly.csv`) when `path_shp` is
-a shapefile, or on every grid point (`hujan_grid.csv`) when `path_shp = None`.
+Runs on the region series (`hujan_area_hourly.csv`) when `shapefile` is given,
+or on every grid point (`hujan_grid.csv`) when `shapefile` is empty.
 Hours missing from the `.nc` files are kept as missing, never as zero. Results
-in `<path_out>/analysis_output/`:
+in `<output_folder>/analysis_output/`:
 
 | File | Content |
 |---|---|
