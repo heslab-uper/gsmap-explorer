@@ -2,4 +2,5 @@
 # Kunci di input.local.txt menimpa kunci yang sama di input.txt; tulis hanya
 # nilai khusus komputer ini.
 gsmap_folder =
+# Kosong = tanpa relief; data/basemap = relief Natural Earth diunduh otomatis ke sana.
 basemap_relief_file =

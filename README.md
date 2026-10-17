@@ -218,12 +218,17 @@ province borders and the largest places (Natural Earth 10m), and the polygons
 of `shapefile` with their `shapefile_id_field` labels (when there are at most
 `map_label_max` regions; regions close together share one label).
 
-**Shaded relief.** Download `SR_HR.zip` (42 MB, Natural Earth 10m shaded
-relief, grayscale) from
-https://www.naturalearthdata.com/downloads/10m-raster-data/10m-shaded-relief/,
-unzip it outside the program folder, and set `basemap_relief_file` in
-`config/input.local.txt` to its `.tif`. Needs `rasterio` (see *Installation*).
-Empty = no relief.
+**Shaded relief.** Set `basemap_relief_file` in `config/input.local.txt` to a
+folder, e.g. `data/basemap` (not in git): when `SR_HR.tif` is not there yet, the
+program downloads the Natural Earth 10m shaded relief once (`SR_HR.zip`, 42 MB;
+233 MB unpacked) from the Natural Earth bucket
+https://naturalearth.s3.us-west-2.amazonaws.com/10m_raster/SR_HR.zip before
+reading the data, and uses it from then on. A `.tif` path instead uses that
+file as it is (grayscale, EPSG:4326). Needs `rasterio` (see *Installation*).
+Empty = no relief. The relief is optional: when it is missing, cannot be
+downloaded (e.g. offline) or cannot be read (e.g. no `rasterio`), the program
+prints a note and draws the maps without it; a failed download is tried again
+at the next run.
 
 Every mode that writes `csv_output/` (extract, thiessen, analysis, all) also
 draws `csv_output/grid_points_map.png`: the grid points with their numbers

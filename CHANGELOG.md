@@ -62,6 +62,12 @@ the file format).
 - Machine values in `config/input.local.txt` (not in git), which replaces
   keys of `config/input.txt`; `gsmap_folder` is empty in the repository.
 - `output_folder` inside the program folder must be under `data/`.
+- `basemap_relief_file` may be a folder (e.g. `data/basemap`): the Natural
+  Earth 10m shaded relief is downloaded into it once. The relief is
+  optional: missing, not downloadable or unreadable gives a note and maps
+  without it, never a stop.
+- A missing `gsmap_folder` or `basemap_relief_file` points to
+  `config/input.local.txt`.
 
 ### Fixed
 

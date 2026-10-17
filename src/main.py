@@ -1,9 +1,12 @@
 from core.local_time import rain_day_utc_window
 from core.reader import cells_in_box, find_month_files, grid_axes, read_netcdf
 from core.shapefile import read_shapefile
+from dataclasses import replace
+
 from utils.config_reader import read_config_with_local
 from utils.settings import SettingsError, add_margin, read_map_settings, read_settings
 from utils.analysis_settings import read_analysis_settings
+from utils.relief import download_relief
 
 from apps.extract_csv import export_csv
 from apps.rain_grid import RainGrid
@@ -62,6 +65,12 @@ def run_pipeline(mode="extract", config_path="config/input.txt", menu=True):
         print("Analysis settings:")
         print(analysis.describe())
     print(maps.describe())
+    if maps.relief_download:
+        try:
+            download_relief(maps.relief_file)
+        except (OSError, ValueError) as exc:   # network, disk, unexpected file: the relief is optional
+            print(f"  note: relief download failed ({exc}); maps without relief, tried again next run")
+            maps = replace(maps, relief_file=None, relief_download=False)
 
     # start_date .. end_date are local rain days; read the UTC hours they hold
     start_date, end_date = rain_day_utc_window(settings.start_date, settings.end_date, settings.day_start_hour,

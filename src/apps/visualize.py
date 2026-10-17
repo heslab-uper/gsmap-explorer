@@ -107,8 +107,14 @@ class MapCanvas:
         ax.set_extent(extent, crs=PC)
         ax.set_facecolor(SEA)
 
+        relief = None
         if maps.relief_file is not None:
-            arr, ext = read_relief(maps.relief_file, extent)
+            try:
+                relief = read_relief(maps.relief_file, extent)
+            except (ImportError, OSError, ValueError) as exc:   # no rasterio, unreadable file: optional layer
+                print(f"  note: relief {maps.relief_file} not drawn ({type(exc).__name__}: {exc}); map without relief")
+        if relief is not None:
+            arr, ext = relief
             ax.imshow(arr, extent=ext, origin="upper", cmap="gray", vmin=0, vmax=255, alpha=0.55,
                       transform=PC, zorder=0, interpolation="bilinear")
             ocean = _natural_earth("physical", "ocean")

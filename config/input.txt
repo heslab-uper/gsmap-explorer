@@ -112,9 +112,13 @@ map_names_yearly =
 map_label_max = 100
 # Jumlah kota terbesar (Natural Earth) yang diberi nama di peta; 0 = tanpa kota.
 map_cities = 8
-# Relief bayangan di bawah peta: raster grayscale EPSG:4326, mis. Natural Earth
-# SR_HR.tif (lihat README). Path mesin: isi di config/input.local.txt. Kosong =
-# tanpa relief.
+# Relief bayangan di bawah peta (Natural Earth 10m shaded relief, perlu rasterio).
+#   folder (mis. data/basemap): SR_HR.tif di folder itu; bila belum ada, diunduh
+#     sekali (42 MB zip, 233 MB tif) dari bucket Natural Earth sebelum data dibaca
+#   berkas .tif: raster grayscale EPSG:4326 yang sudah ada
+# Opsional: relief yang tidak ada, gagal diunduh, atau tak terbaca hanya dicatat di
+# layar dan peta dibuat tanpa relief (pemilik 2026-10-17); program tidak berhenti.
+# Path mesin: isi di config/input.local.txt. Kosong = tanpa relief.
 basemap_relief_file =
 
 ################################################################

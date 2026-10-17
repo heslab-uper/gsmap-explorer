@@ -7,6 +7,7 @@ __pycache__/
 data/raw/
 data/output/
 data/temp/
+data/basemap/
 
 # Machine config (paths of each computer)
 config/*.local.txt

@@ -16,6 +16,7 @@ from pathlib import Path
 from core.local_time import TIME_ZONE_HOURS
 from core.reader import MONTH_FILE
 from utils.config_reader import PROGRAM_DIR, resolve_path
+from utils.relief import relief_path
 
 
 class SettingsError(ValueError):
@@ -79,10 +80,17 @@ def check_time_zone(text: str) -> str:
 
 # ---- one key -----------------------------------------------------------------
 
+LOCAL_KEYS = ("gsmap_folder", "basemap_relief_file")
+"""Keys holding paths of one computer: they belong in config/input.local.txt."""
+
+LOCAL_HINT = "set it in config/input.local.txt (a copy of config/input.local.example.txt)"
+
+
 def get(cfg: dict, key: str) -> str:
     v = cfg.get(key)
     if v is None or v == "":
-        raise SettingsError(f"config key '{key}' is missing or empty")
+        hint = f"; {LOCAL_HINT}" if key in LOCAL_KEYS else ""
+        raise SettingsError(f"config key '{key}' is missing or empty{hint}")
     return v
 
 
@@ -251,6 +259,8 @@ class MapSettings:
     """Grid points or shapefile regions are labelled only up to this many (0 = never)."""
     relief_file: Path | None
     """Shaded relief raster drawn under the map, or None."""
+    relief_download: bool
+    """``relief_file`` is missing and is downloaded before the data are read (``utils.relief``)."""
     cities: int
     """Largest Natural Earth places in the map labelled (0 = none)."""
 
@@ -287,13 +297,20 @@ def read_map_settings(cfg: dict) -> MapSettings:
     outputs = list_key(cfg, "map_outputs")
     if not outputs or any(o not in MAP_OUTPUTS for o in outputs):
         raise SettingsError(f"config key 'map_outputs' = {outputs}; use one or more of {list(MAP_OUTPUTS)}")
-    relief = optional(cfg, "basemap_relief_file")
+    relief_text = optional(cfg, "basemap_relief_file")
+    relief, download = None, False
+    if relief_text:
+        try:
+            relief, download = relief_path(resolve_path(relief_text))
+        except (ValueError, FileNotFoundError) as exc:   # the relief is optional: never stop for it
+            print(f"  note: basemap_relief_file = {relief_text!r}: {exc}; maps without relief")
     levels = {o: read_levels(cfg, f"map_levels_{o}") for o in MAP_OUTPUTS}
     return MapSettings(
         outputs=[o for o in MAP_OUTPUTS if o in outputs],
         levels=levels,
         names={o: read_names(cfg, o, len(levels[o])) for o in MAP_OUTPUTS},
         label_max=int_key(cfg, "map_label_max", 0),
-        relief_file=check(cfg, "basemap_relief_file", check_file) if relief else None,
+        relief_file=relief,
+        relief_download=download,
         cities=int_key(cfg, "map_cities", 0),
     )

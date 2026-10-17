@@ -19,7 +19,8 @@ from core.local_time import local_offset_hours
 from core.reader import MONTH_FILE, find_month_files, grid_axes
 from core.shapefile import read_shapefile
 from utils.settings import (BOX_KEYS, SettingsError, check, check_box, check_date, check_file, check_gsmap_folder,
-                            check_number, check_output_folder, int_key, read_daily_settings, read_margin)
+                            check_number, check_output_folder, int_key, read_daily_settings, read_margin,
+                            LOCAL_HINT, LOCAL_KEYS)
 
 SELECTION_LABELS = {"points": "titik koordinat (CSV name,lat,lon)", "box": "box (min/max lon dan lat)",
                     "shape": "batas luar (total bounds) shapefile"}
@@ -40,7 +41,8 @@ def _ask(question: str, default: str, check, interactive: bool, key: str):
         text = answer or default
         try:
             if not text:
-                raise ValueError("empty; fill it in the config or type a value")
+                raise ValueError("empty; " + (LOCAL_HINT if key in LOCAL_KEYS else "fill it in the config")
+                                 + " or type a value")
             return check(text)
         except (ValueError, SettingsError, FileNotFoundError) as exc:
             if not interactive:
