@@ -4,7 +4,7 @@ Defaults of the menu are the config keys ``gsmap_folder``, ``series_region``
 (points, box, shape), ``points_file``, ``min_lon`` .. ``max_lat``,
 ``shapefile``, ``start_date``, ``end_date`` (rain-day dates),
 ``series_outputs`` and ``time_zone``; an answer changes this run only. Also
-read: ``day_start_hour``, ``daily_date_label``, ``output_folder``,
+read: ``day_start_hour``, ``daily_date_label``, ``output_folder``, ``region_margin_deg``,
 ``series_max_values`` (without the menu, stop above this many hourly values).
 Menu answers and config values are checked by the same functions
 (``utils.settings``).
@@ -19,7 +19,7 @@ from core.local_time import local_offset_hours
 from core.reader import MONTH_FILE, find_month_files, grid_axes
 from core.shapefile import read_shapefile
 from utils.settings import (BOX_KEYS, SettingsError, check, check_box, check_date, check_file, check_gsmap_folder,
-                            check_number, check_output_folder, int_key, read_daily_settings)
+                            check_number, check_output_folder, int_key, read_daily_settings, read_margin)
 
 SELECTION_LABELS = {"points": "titik koordinat (CSV name,lat,lon)", "box": "box (min/max lon dan lat)",
                     "shape": "batas luar (total bounds) shapefile"}
@@ -86,6 +86,7 @@ def ask_series_choice(config, *, interactive: bool) -> SeriesChoice:
     day_start_hour, date_label = read_daily_settings(config)
     output_folder = check(config, "output_folder", check_output_folder)
     limit = int_key(config, "series_max_values", 1)
+    margin = read_margin(config)
     say = print if interactive else (lambda *args: None)
     print("=" * 60)
     print("  EKSTRAKSI DERET HUJAN GSMaP" + ("" if interactive else "  (dari config, tanpa menu)"))
@@ -139,7 +140,7 @@ def ask_series_choice(config, *, interactive: bool) -> SeriesChoice:
 
     choice = SeriesChoice(product=product, path_nc=str(folder), selection=selection, start=start, end=end,
                           outputs=[o for o in OUTPUTS if o in outputs], zone=zone, day_start_hour=day_start_hour,
-                          date_label=date_label, path_out=str(output_folder), **choice_kw)
+                          date_label=date_label, margin=margin, path_out=str(output_folder), **choice_kw)
 
     # size check and confirmation
     files, _ = find_month_files(folder, datetime.combine(start, datetime.min.time()),

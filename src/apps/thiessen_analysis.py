@@ -46,14 +46,17 @@ def polygon_thiesen (settings):
     mp = MultiPoint(points)
     vor = voronoi_polygons(mp, extend_to=box(*bounds))
 
-
-    thiessen = gpd.GeoDataFrame(
-        {
-            "station": points_name
-        },
-        geometry=list(vor.geoms),
-        crs=subdas.crs
-    )
+    # voronoi_polygons does not return the polygons in the order of the points:
+    # name each polygon by the grid point lying in it, never by position
+    cells = gpd.GeoDataFrame(geometry=list(vor.geoms), crs=subdas.crs)
+    stations = gpd.GeoDataFrame({"station": points_name},
+                                geometry=gpd.points_from_xy(points[:, 0], points[:, 1]), crs=subdas.crs)
+    owner = gpd.sjoin(stations, cells, how="left", predicate="within")
+    if owner["index_right"].isna().any() or owner["index_right"].duplicated().any() or len(owner) != len(cells):
+        raise ValueError("Thiessen polygons do not match the grid points one to one")
+    thiessen = gpd.GeoDataFrame({"station": owner["station"].to_numpy()},
+                                geometry=cells.geometry.loc[owner["index_right"].astype(int)].to_numpy(),
+                                crs=subdas.crs)
 
 
     thiessen = gpd.overlay(
@@ -74,6 +77,13 @@ def polygon_thiesen (settings):
 
 
     sub_das_values = thiessen[das_field].unique()
+
+    # regions inside the same GSMaP cell(s) get identical rain: say so (resolution 0.1 degree)
+    cells_of = thiessen.groupby(das_field)["station"].agg(lambda s: frozenset(s))
+    for cells, ids in cells_of.groupby(cells_of).groups.items():
+        if len(ids) > 1:
+            print(f"  note: regions {', '.join(str(i) for i in ids)} use the same grid cell(s) "
+                  f"{', '.join(sorted(cells))}: identical areal rain")
     results = []
     df_hujan = df_hujan.sort_index()
 

@@ -15,7 +15,7 @@ from pathlib import Path
 
 from core.local_time import TIME_ZONE_HOURS
 from core.reader import MONTH_FILE
-from utils.config_reader import resolve_path
+from utils.config_reader import PROGRAM_DIR, resolve_path
 
 
 class SettingsError(ValueError):
@@ -36,9 +36,14 @@ def check_gsmap_folder(text: str) -> Path:
 
 
 def check_output_folder(text: str) -> Path:
+    """Output folder; inside the program folder only under data/ (ignored by git), so results never reach GitHub."""
     folder = resolve_path(text)
     if folder.exists() and not folder.is_dir():
         raise ValueError(f"{folder} exists and is not a folder")
+    inside = folder.resolve().is_relative_to(PROGRAM_DIR)
+    if inside and not folder.resolve().is_relative_to(PROGRAM_DIR / "data"):
+        raise ValueError(f"{folder} is inside the program folder but not under data/; "
+                         f"use data/... (not in git) or a folder outside {PROGRAM_DIR}")
     return folder
 
 
@@ -138,6 +143,17 @@ def read_daily_settings(cfg: dict) -> tuple[int, str]:
     return int_key(cfg, "day_start_hour", 0, 23), choice_key(cfg, "daily_date_label", ("start", "end"))
 
 
+def read_margin(cfg: dict) -> float:
+    """``region_margin_deg``: degrees added on every side of the box or shapefile bounds."""
+    return float_key(cfg, "region_margin_deg", 0, 5, lo_open=False)
+
+
+def add_margin(bounds, margin: float) -> tuple:
+    """(min_lon, max_lon, min_lat, max_lat) widened by ``margin`` degrees on every side."""
+    min_lon, max_lon, min_lat, max_lat = bounds
+    return (min_lon - margin, max_lon + margin, min_lat - margin, max_lat + margin)
+
+
 BOX_KEYS = (("min_lon", -180, 180), ("max_lon", -180, 180), ("min_lat", -90, 90), ("max_lat", -90, 90))
 
 
@@ -180,6 +196,8 @@ class Settings:
     shapefile_id_field: str | None
     box: tuple
     """(min_lon, max_lon, min_lat, max_lat)."""
+    margin: float
+    """``region_margin_deg``: added on every side of the box or the shapefile bounds."""
     time_zone: str
     start_date: date
     """First rain day (local)."""
@@ -207,9 +225,75 @@ def read_settings(cfg: dict, *, need_shapefile: bool) -> Settings:
         shapefile=shapefile,
         shapefile_id_field=field,
         box=read_box(cfg),
+        margin=read_margin(cfg),
         time_zone=check(cfg, "time_zone", check_time_zone),
         start_date=start,
         end_date=end,
         day_start_hour=day_start_hour,
         daily_date_label=date_label,
+    )
+
+
+# ---- maps --------------------------------------------------------------------
+
+MAP_OUTPUTS = ("hourly", "daily", "monthly", "yearly")
+
+
+@dataclass(frozen=True)
+class MapSettings:
+    outputs: list
+    """Maps of the visualize mode, from ``MAP_OUTPUTS``."""
+    levels: dict
+    """Class bounds per map: {"hourly": [...], "daily": ..., "monthly": ..., "yearly": ...}."""
+    names: dict
+    """Category name of each class per map (one per bound: bound i .. bound i+1, the last open), or []."""
+    label_max: int
+    """Grid points or shapefile regions are labelled only up to this many (0 = never)."""
+    relief_file: Path | None
+    """Shaded relief raster drawn under the map, or None."""
+    cities: int
+    """Largest Natural Earth places in the map labelled (0 = none)."""
+
+    def describe(self) -> str:
+        return "\n".join(f"  map {k}: {v}" for k, v in asdict(self).items())
+
+
+def read_levels(cfg: dict, key: str) -> list[float]:
+    """Class bounds: at least 3 numbers > 0, strictly increasing."""
+    out = []
+    for p in list_key(cfg, key):
+        try:
+            out.append(float(p))
+        except ValueError:
+            raise SettingsError(f"config key '{key}': {p!r} is not a number") from None
+    if len(out) < 3 or out[0] <= 0 or any(b <= a for a, b in zip(out, out[1:])):
+        raise SettingsError(f"config key '{key}' = {out}; expected at least 3 numbers > 0, increasing")
+    return out
+
+
+def read_names(cfg: dict, kind: str, n: int) -> list[str]:
+    """``map_names_<kind>``: empty, or one name per class (as many as the class bounds)."""
+    key = f"map_names_{kind}"
+    if optional(cfg, key) is None:
+        return []
+    names = [p.strip() for p in cfg[key].split(",")]
+    if len(names) != n or any(not x for x in names):
+        raise SettingsError(f"config key '{key}' has {len(names)} name(s); map_levels_{kind} has {n} classes")
+    return names
+
+
+def read_map_settings(cfg: dict) -> MapSettings:
+    """Check the map keys of the config and return them."""
+    outputs = list_key(cfg, "map_outputs")
+    if not outputs or any(o not in MAP_OUTPUTS for o in outputs):
+        raise SettingsError(f"config key 'map_outputs' = {outputs}; use one or more of {list(MAP_OUTPUTS)}")
+    relief = optional(cfg, "basemap_relief_file")
+    levels = {o: read_levels(cfg, f"map_levels_{o}") for o in MAP_OUTPUTS}
+    return MapSettings(
+        outputs=[o for o in MAP_OUTPUTS if o in outputs],
+        levels=levels,
+        names={o: read_names(cfg, o, len(levels[o])) for o in MAP_OUTPUTS},
+        label_max=int_key(cfg, "map_label_max", 0),
+        relief_file=check(cfg, "basemap_relief_file", check_file) if relief else None,
+        cities=int_key(cfg, "map_cities", 0),
     )

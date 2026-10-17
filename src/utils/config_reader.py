@@ -26,6 +26,26 @@ def read_config(path) -> dict[str, str]:
     return config
 
 
+def local_config_path(path) -> Path:
+    """``config/input.txt`` -> ``config/input.local.txt``: machine values, not in the repository."""
+    path = Path(path)
+    return path.with_name(f"{path.stem}.local{path.suffix}")
+
+
+def read_config_with_local(path) -> tuple[dict[str, str], Path | None, list[str]]:
+    """The config, with every key of the local config (if present) replacing its value.
+
+    Returns the merged keys, the local file (None when absent) and the keys it set.
+    """
+    config = read_config(path)
+    local = local_config_path(path)
+    if not local.is_file():
+        return config, None, []
+    overrides = read_config(local)
+    config.update(overrides)
+    return config, local, list(overrides)
+
+
 def resolve_path(text) -> Path:
     """``text`` as an absolute path; a relative one is taken from the folder of run.py."""
     p = Path(text).expanduser()

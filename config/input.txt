@@ -1,5 +1,8 @@
 # Config gsmap-explorer. Satu "kunci = nilai" per baris; "#" memulai komentar.
 # Path: absolut, atau relatif terhadap folder run.py. Nilai kosong = tidak diisi.
+# Nilai khusus komputer ini (gsmap_folder, basemap_relief_file) ditulis di
+# config/input.local.txt (tidak masuk git; contoh: input.local.example.txt):
+# kunci di sana menimpa kunci yang sama di sini.
 # Semua kunci diperiksa sebelum data dibaca; kunci yang salah menghentikan
 # program dengan namanya.
 
@@ -11,10 +14,12 @@
 #   <folder>/<tahun>/<nama>_YYYYMM.nc   (mis. 2015/gsmap_std_v8_ga_201501.nc)
 #   <folder>/<nama>_YYYYMM.nc  atau  <folder>/<nama>_YYYY_MM.nc
 # Satu produk per folder: dua berkas untuk bulan yang sama = galat.
+# Path mesin: isi di config/input.local.txt.
 gsmap_folder =
 # Folder keluaran; ganti sesuai kebutuhan. Tiap mode menulis ke subfoldernya
 # sendiri: csv_output/ (extract, thiessen, analysis), visualization_output/,
-# analysis_output/, series_output/. Dibuat bila belum ada.
+# analysis_output/, series_output/. Dibuat bila belum ada. Di dalam folder
+# program hanya boleh di bawah data/ (tidak masuk git), atau di luar folder program.
 output_folder = data/output
 
 # ========================
@@ -42,6 +47,10 @@ max_lat = -5
 # Daftar titik untuk series (points): CSV dengan kolom name,lat,lon, derajat
 # desimal, lintang selatan negatif. Tiap titik mengambil sel grid yang memuatnya.
 points_file = config/points.csv
+# Margin di tiap sisi batas luar wilayah (kotak atau shapefile), derajat (0..5).
+# Data yang diambil, peta, dan series (box, shape) mencakup wilayah + margin ini,
+# untuk tetangga poligon Thiessen atau interpolasi (pemilik 2026-10-17: 0.2).
+region_margin_deg = 0.2
 
 # ========================
 # WAKTU
@@ -52,8 +61,8 @@ points_file = config/points.csv
 # (pemilik 2026-10-15, 2026-10-17). Nilai lain = galat.
 time_zone = WIB
 # Periode: tanggal hari hujan lokal (YYYY-MM-DD), kedua hari ikut penuh. Satu
-# hari = day_start_hour di time_zone sampai jam yang sama besoknya; berlaku
-# untuk semua mode.
+# hari = 24 jam sampai day_start_hour di time_zone, bertanggal daily_date_label;
+# berlaku untuk semua mode.
 start_date = 2026-01-01
 end_date = 2026-06-30
 
@@ -73,15 +82,52 @@ series_outputs = hourly,daily,monthly,yearly
 series_max_values = 50000000
 
 ################################################################
+# PETA (mode visualize, all; peta titik grid di extract, thiessen, analysis)
+################################################################
+# Peta mode visualize, satu atau lebih: hourly, daily, monthly, yearly. Per jam =
+# satu peta tiap jam (periode panjang = ribuan berkas). Bulanan/tahunan hanya
+# untuk bulan/tahun yang utuh di dalam periode tanpa hari hilang (seperti series).
+map_outputs = daily,monthly,yearly
+# Batas kelas warna (naik, minimal 3, > 0). Di bawah batas pertama = transparan
+# (relief terlihat); kelas terakhir terbuka (> batas terakhir). map_names_* =
+# nama kategori per kelas (sebanyak batas), kosong = tanpa nama.
+# Per jam, mm/jam: kategori BMKG (BMG 2008; citra radar BBMKG III, dibaca
+# 2026-10-17); sangat ringan 0.1-1: pemilik 2026-10-17.
+map_levels_hourly = 0.1,1,5,10,20
+map_names_hourly = sangat ringan,ringan,sedang,lebat,sangat lebat
+# Harian, mm/hari: kategori BMKG (BMG 2008, dikutip Buletin BMKG NTT Juni 2020);
+# ekstrem > 150: siaran pers BMKG 2025-09-12; sangat ringan 0.5-5: pemilik 2026-10-17.
+map_levels_daily = 0.5,5,20,50,100,150
+map_names_daily = sangat ringan,ringan,sedang,lebat,sangat lebat,ekstrem
+# Bulanan, mm/bulan: 9 kelas BMKG (Pattipeilohy dkk., jurnal Pusdiklat BMKG); nama:
+# prediksi hujan bulanan BMKG (rendah < 100, menengah 100-300, tinggi 300-500,
+# sangat tinggi > 500, dibaca 2026-10-17). < 20 = transparan.
+map_levels_monthly = 20,50,100,150,200,300,400,500
+map_names_monthly = rendah,rendah,menengah,menengah,menengah,tinggi,tinggi,sangat tinggi
+# Tahunan, mm/tahun (pemilik 2026-10-17): hanya 0 (tidak ada hujan) transparan.
+map_levels_yearly = 0.1,500,1000,1500,2000,2500,3000,4000,5000
+map_names_yearly =
+# Label nama wilayah shapefile dan nomor titik grid hanya bila jumlahnya <= nilai
+# ini (bilangan bulat >= 0; 0 = tanpa label).
+map_label_max = 100
+# Jumlah kota terbesar (Natural Earth) yang diberi nama di peta; 0 = tanpa kota.
+map_cities = 8
+# Relief bayangan di bawah peta: raster grayscale EPSG:4326, mis. Natural Earth
+# SR_HR.tif (lihat README). Path mesin: isi di config/input.local.txt. Kosong =
+# tanpa relief.
+basemap_relief_file =
+
+################################################################
 # HUJAN HARIAN DAN TAHUN (semua mode)
 ################################################################
 # Hari tetap: 24 jam dari jam ini sampai jam yang sama besoknya, jam label
 # lokal time_zone (0..23). 7 = 07.00-07.00, jam baca pos hujan manual
-# (pemilik 2026-10-15): hari D berisi label 08.00 D s.d. 07.00 D+1.
+# (pemilik 2026-10-15).
 day_start_hour = 7
 # Tanggal hujan harian: start = hari jendela dimulai, end = hari jendela berakhir.
-# start: tanggal D = 07.00 D s.d. 07.00 D+1, seperti pembacaan pos hujan manual.
-daily_date_label = start
+# end: tanggal Kamis = Rabu 07.00 s.d. Kamis 07.00 (label jam 08.00 Rabu s.d.
+# 07.00 Kamis) (pemilik 2026-10-17; sebelumnya start, 2026-10-15).
+daily_date_label = end
 # Bulan awal tahun: 1 = tahun kalender; mis. 11 = tahun air Nov-Okt.
 year_start_month = 1
 # Tahun dipakai bila >= fraksi ini datanya ada (0 < f <= 1). 0.9 = 90 %.

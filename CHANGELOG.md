@@ -49,8 +49,29 @@ the file format).
   exactly on a cell centre now includes that cell, as documented; the fixed
   grid lost it to rounding.
 
+- Maps rewritten (`visualize`): hourly, daily, monthly and yearly maps
+  (`map_outputs`) with BMKG classes and names, transparent dry cells, hatched
+  incomplete cells, Natural Earth basemap with optional shaded relief, the
+  shapefile regions, and files named by time in one folder per kind. Every
+  mode writing `csv_output/` also draws `grid_points_map.png`.
+- `region_margin_deg` (0.2): the data read, the maps and the series `box` /
+  `shape` cover the region + this margin on every side. Before: the box
+  exactly, the shapefile bounds + 0.1 to 0.15 degree; the series no margin.
+- `daily_date_label = end` in the config (owner 2026-10-17): a day is dated
+  by the day its window ends (Thursday = Wednesday 07.00 to Thursday 07.00).
+- Machine values in `config/input.local.txt` (not in git), which replaces
+  keys of `config/input.txt`; `gsmap_folder` is empty in the repository.
+- `output_folder` inside the program folder must be under `data/`.
+
 ### Fixed
 
+- **Thiessen: areal rain taken from the wrong grid points.** The Thiessen
+  polygons were named by position, but `shapely.voronoi_polygons` does not
+  return them in the order of the points, so most polygons carried the rain
+  of another grid point (14 of 16 in a 4 x 4 test; for a watershed near
+  Yogyakarta, 23.99 instead of 27.46 mm on 1 Jan 2026). Each polygon now
+  takes the point lying in it. Results of `thiessen` and of `analysis` with
+  a shapefile from earlier versions should be recomputed.
 - Output redirected to a file or pipe (`run.py ... > log.txt`, scheduled
   runs) no longer stops with `UnicodeEncodeError` at the first "✅" message
   on Windows; `run.py` writes its output as UTF-8.

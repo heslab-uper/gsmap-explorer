@@ -1,0 +1,5 @@
+# Contoh config lokal: salin menjadi input.local.txt (tidak masuk git) dan isi.
+# Kunci di input.local.txt menimpa kunci yang sama di input.txt; tulis hanya
+# nilai khusus komputer ini.
+gsmap_folder =
+basemap_relief_file =

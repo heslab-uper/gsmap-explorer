@@ -2,8 +2,8 @@
 
 Region:
 ``points``  the cell holding each point of a CSV file (name, lat, lon);
-``box``     every cell overlapping min_lon..max_lon, min_lat..max_lat;
-``shape``   every cell overlapping the total bounds of a shapefile.
+``box``     every cell overlapping min_lon..max_lon, min_lat..max_lat, + region_margin_deg;
+``shape``   every cell overlapping the total bounds of a shapefile, + region_margin_deg.
 No interpolation: each column is one 0.1-degree cell (``cells.csv``).
 
 Time: local labels marking the END of each hour, UTC + time zone + 1 h
@@ -30,7 +30,7 @@ from apps.extract_points import read_points_file
 from core.local_time import (TIME_ZONE_HOURS, local_offset_hours, rain_day_labels, rain_day_utc_window,
                              to_local_end_labels)
 from core.reader import cells_in_box, find_month_files, grid_axes, grid_cells, read_window
-from core.series import compute_daily_totals
+from core.series import compute_daily_totals, strict_totals
 from core.shapefile import read_shapefile
 
 SELECTIONS = ("points", "box", "shape")
@@ -58,6 +58,8 @@ class SeriesChoice:
     box: tuple | None = None
     """(min_lon, max_lon, min_lat, max_lat)."""
     shapefile: str | None = None
+    margin: float = 0.0
+    """``region_margin_deg``: added on every side of the box or the shapefile bounds (not to points)."""
     path_out: str = ""
     notes: list = field(default_factory=list)
 
@@ -65,6 +67,8 @@ class SeriesChoice:
         where = {"points": f"points from {self.points_file}",
                  "box": "box lon {0}..{1}, lat {2}..{3}".format(*self.box) if self.box else "",
                  "shape": f"total bounds of {self.shapefile}"}[self.selection]
+        if self.selection != "points":
+            where += f", + {self.margin:g} degree on every side"
         off = local_offset_hours(self.zone)
         return "\n".join([
             f"  product   : {self.product} ({self.path_nc})",
@@ -103,7 +107,8 @@ def select_cells(choice: SeriesChoice, lat_axis, lon_axis) -> pd.DataFrame:
         gdf = read_shapefile(choice.shapefile)
         min_lon, min_lat, max_lon, max_lat = (float(v) for v in gdf.total_bounds)
         choice.notes.append(f"shapefile total bounds: lon {min_lon:.4f}..{max_lon:.4f}, lat {min_lat:.4f}..{max_lat:.4f}")
-    rows, cols = cells_in_box(lat_axis, lon_axis, min_lon, max_lon, min_lat, max_lat)
+    m = choice.margin
+    rows, cols = cells_in_box(lat_axis, lon_axis, min_lon - m, max_lon + m, min_lat - m, max_lat + m)
     r, c = np.meshgrid(rows, cols, indexing="ij")
     r, c = r.ravel(), c.ravel()
     clat, clon = np.round(lat_axis[r], 2), np.round(lon_axis[c], 2)
@@ -114,19 +119,6 @@ def select_cells(choice: SeriesChoice, lat_axis, lon_axis) -> pd.DataFrame:
 def day_window_labels(choice: SeriesChoice) -> tuple[pd.Timestamp, pd.Timestamp]:
     """First and last local end-of-hour label of the rain days start .. end."""
     return rain_day_labels(choice.start, choice.end, choice.day_start_hour, choice.date_label)
-
-
-def strict_totals(daily: pd.DataFrame, freq: str) -> pd.DataFrame:
-    """Sum of the days of each calendar month (``MS``) or year (``YS``); NaN unless every day is present."""
-    periods = daily.index.to_period("M" if freq == "MS" else "Y")
-    expected = pd.Series(periods.days_in_month if freq == "MS" else [366 if p.is_leap_year else 365 for p in periods],
-                         index=daily.index).groupby(periods).first()
-    total = daily.groupby(periods).sum(min_count=1)
-    complete = daily.notna().groupby(periods).sum().eq(expected, axis=0)
-    out = total.where(complete)
-    out.index = out.index.astype(str)
-    out.index.name = "month" if freq == "MS" else "year"
-    return out
 
 
 def estimate(choice: SeriesChoice, n_cells: int) -> tuple[int, int]:

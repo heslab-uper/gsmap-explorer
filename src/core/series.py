@@ -148,3 +148,16 @@ def compute_annual_maxima(values: pd.DataFrame, *, year_start_month: int,
     return AnnualMaxima(values=pd.DataFrame(out_max, index=year_index, columns=values.columns),
                         times=times,
                         valid_fraction=pd.DataFrame(out_frac, index=year_index, columns=values.columns))
+
+
+def strict_totals(daily: pd.DataFrame, freq: str) -> pd.DataFrame:
+    """Sum of the days of each calendar month (``MS``) or year (``YS``); NaN unless every day is present."""
+    periods = daily.index.to_period("M" if freq == "MS" else "Y")
+    expected = pd.Series(periods.days_in_month if freq == "MS" else [366 if p.is_leap_year else 365 for p in periods],
+                         index=daily.index).groupby(periods).first()
+    total = daily.groupby(periods).sum(min_count=1)
+    complete = daily.notna().groupby(periods).sum().eq(expected, axis=0)
+    out = total.where(complete)
+    out.index = out.index.astype(str)
+    out.index.name = "month" if freq == "MS" else "year"
+    return out
