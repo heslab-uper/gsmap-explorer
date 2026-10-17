@@ -76,7 +76,7 @@ series_region = points
 # Keluaran, satu atau lebih: hourly, daily, monthly, yearly. Bulanan/tahunan =
 # jumlah hujan harian; kosong bila ada hari hilang atau bulan/tahun tidak penuh
 # di dalam periode.
-series_outputs = hourly,daily,monthly,yearly
+series_outputs = daily,monthly,yearly
 # Batas ukuran tabel jam-an (jumlah kolom x jumlah jam), bilangan bulat > 0.
 # Tanpa menu program berhenti bila terlampaui; dengan menu, ditanya.
 series_max_values = 50000000
