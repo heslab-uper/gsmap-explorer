@@ -11,3 +11,6 @@ data/basemap/
 
 # Machine config (paths of each computer)
 config/*.local.txt
+
+# Editor settings of each computer (may hold machine paths)
+.vscode/
