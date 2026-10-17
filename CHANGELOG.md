@@ -40,3 +40,17 @@ the file format).
   defaults are always the config values.
 - Every key is checked before any data is read; a polygon with an empty
   `shapefile_id_field` and a region outside the data are errors.
+- The modes extract, visualize, thiessen, analysis and all read the grid
+  from the `.nc` files (rounded to 2 decimals), no longer from a grid fixed
+  in the code (90.05..150.05, 15.05..-15.05). Files with another extent or
+  with `lat` running south to north are now read at the right cells; before,
+  they failed or were shifted. Coordinates in `koordinat.csv` are the
+  rounded centres (106.05, not 106.04999999999909). A region bound lying
+  exactly on a cell centre now includes that cell, as documented; the fixed
+  grid lost it to rounding.
+
+### Fixed
+
+- Output redirected to a file or pipe (`run.py ... > log.txt`, scheduled
+  runs) no longer stops with `UnicodeEncodeError` at the first "✅" message
+  on Windows; `run.py` writes its output as UTF-8.

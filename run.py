@@ -6,6 +6,12 @@ import argparse
 PROGRAM_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(PROGRAM_DIR, "src"))
 
+# Keluaran selalu UTF-8: tanpa ini print berisi "✅" berhenti dengan UnicodeEncodeError
+# (cp1252) saat keluaran dialihkan ke berkas atau pipe di Windows, mis. run terjadwal.
+for stream in (sys.stdout, sys.stderr):
+    if hasattr(stream, "reconfigure"):
+        stream.reconfigure(encoding="utf-8", errors="replace")
+
 from main import run_pipeline
 
 

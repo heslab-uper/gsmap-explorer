@@ -130,66 +130,30 @@ def read_window(file_path_list, rows, cols, start_date, end_date):
     return unique_times, data_all[unique_idx]
 
 
-def read_netcdf(file_path_list, start_date=None, end_date=None, extent=None):
-    times_all = []
-    data_all = []
-    XX = np.arange(90.05, 150.06, 0.1) 
-    YY = np.arange(15.05, -15.06, -0.1) 
+def read_netcdf(file_path_list, start_date, end_date, extent):
+    """Hourly rain of every grid cell whose centre lies in ``extent``, axes read from the files.
 
+    ``extent`` = (min_lon, max_lon, min_lat, max_lat), bounds included. The
+    axes come from the first file (``lat`` may run north to south and keeps
+    its order); every file must have the same axes (``read_window``).
+    The axes are rounded to 2 decimals before the cells are chosen, as in the
+    series mode: the float32 axes of the archive are written with np.arange
+    and drift up to about 2e-4 degree from the x.x5 centres of the 0.1-degree
+    grid. A grid whose centres need more decimals is not supported.
+
+    Returns
+    -------
+    values : (n_times, n_lat, n_lon) float64, NaN for masked cells
+    times : numpy.ndarray of datetime, UTC start-of-hour stamps
+    lon, lat : cell centres of the columns and rows
+    """
     min_lon, max_lon, min_lat, max_lat = extent
-    lon_mask = (XX >= min_lon) & (XX <= max_lon)
-    lat_mask = (YY >= min_lat) & (YY <= max_lat)
-
-    
-
-
-    for file_path in file_path_list:
-        with Dataset(file_path, 'r') as nc:
-            time_var = _var(nc, NC_TIME)
-            times = num2date(
-            time_var[:],
-            units=time_var.units,
-            calendar=getattr(time_var, 'calendar', 'standard'))
-            
-            times = np.array([datetime.datetime(t.year, t.month, t.day, t.hour, t.minute, t.second)
-                for t in times
-            ])
-
-            # times = np.array(times)  # Convert to numpy array for easier slicing
-            min_time = np.min(times)
-            max_time = np.max(times)
-
-            data = _var(nc, NC_PRECIPITATION)[:,:,:]
-            mask = np.ones(data.shape[0], dtype=bool)
-            data = data[:, lat_mask, :][:, :, lon_mask]
-            # netCDF4 returns a MaskedArray: masked cells (_FillValue) become NaN, not the raw fill value
-            data = np.ma.filled(np.ma.asarray(data, dtype=np.float64), np.nan)
-
-            if start_date is not None:
-                mask &= (times >= start_date)
-            if end_date is not None:
-                mask &= (times <= end_date)
-
-            if not np.any(mask):
-                continue  
-            times_all.append(times[mask])
-            data_all.append(data[mask, :, :])
-        
-            # nc.close()
-
-    if len (times_all) == 0:
-        raise ValueError("no data in the period in the files found")
-    
-    times_all = np.concatenate(times_all)
-    data_all = np.concatenate(data_all, axis=0)
-
-    sort_idx = np.argsort(times_all)
-    times_all = times_all[sort_idx]
-    data_all = data_all[sort_idx, :, :]
-
-    unique_times, unique_idx = np.unique(times_all, return_index=True)
-    unique_data = data_all[unique_idx, :, :]
-    
-    return unique_data, unique_times, XX[lon_mask], YY[lat_mask]
-
-
+    lat_axis, lon_axis = (np.round(a, 2) for a in grid_axes(file_path_list[0]))
+    rows = np.nonzero((lat_axis >= min_lat) & (lat_axis <= max_lat))[0]
+    cols = np.nonzero((lon_axis >= min_lon) & (lon_axis <= max_lon))[0]
+    if rows.size == 0 or cols.size == 0:
+        raise ValueError(f"no grid cell centre in lon {min_lon}..{max_lon}, lat {min_lat}..{max_lat} "
+                         f"(grid lat {lat_axis.min():.2f}..{lat_axis.max():.2f}, "
+                         f"lon {lon_axis.min():.2f}..{lon_axis.max():.2f})")
+    times, values = read_window(file_path_list, rows, cols, start_date, end_date)
+    return values, times, lon_axis[cols], lat_axis[rows]
