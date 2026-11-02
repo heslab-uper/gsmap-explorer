@@ -61,6 +61,19 @@ time_zone = WIB
 start_date = 2026-01-01
 end_date = 2026-06-30
 
+# ========================
+# THIESSEN
+# ========================
+# Urutan kolom wilayah di tabel hujan thiessen (dan baris weights.csv), menurut nilai
+# kolom pengenal wilayah (pemilik 2026-11-02):
+#   shapefile  = urutan tabel atribut shapefile, tidak diurutkan (bawaan)
+#   ascending  = terkecil ke terbesar
+#   descending = terbesar ke terkecil
+# Kolom pengenal berupa angka diurutkan sebagai angka; berupa teks, angka di dalamnya
+# diurutkan sebagai angka: SubDAS_2 sebelum SubDAS_10 (usulan Claude, disetujui pemilik
+# 2026-11-02).
+thiessen_column_order = shapefile
+
 ################################################################
 # PETA (mode visualize: wilayah extract_region; peta map.png di extract dan thiessen)
 ################################################################

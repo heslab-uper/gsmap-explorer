@@ -70,6 +70,25 @@ def _natural_earth(category: str, name: str):
         return None
 
 
+NATURAL_EARTH_LAYERS = (("physical", "ocean"), ("physical", "land"), ("physical", "coastline"),
+                        ("cultural", "admin_0_boundary_lines_land"),
+                        ("cultural", "admin_1_states_provinces_lines"), ("cultural", "populated_places"))
+"""(category, name) of the Natural Earth 10m layers the maps draw."""
+
+
+def download_natural_earth() -> bool:
+    """Download every layer of NATURAL_EARTH_LAYERS into the cartopy data folder (install.bat).
+
+    Layers already there are not downloaded again. True when all are present.
+    """
+    ok = True
+    for category, name in NATURAL_EARTH_LAYERS:
+        path = _natural_earth(category, name)
+        print(f"  {'ok  ' if path else 'FAIL'} {name}")
+        ok = ok and path is not None
+    return ok
+
+
 def _geoms(path) -> list:
     """Geometries of a shapefile; records without one (some Natural Earth layers have them) are skipped."""
     return [g for g in shpreader.Reader(path).geometries() if g is not None and not g.is_empty]

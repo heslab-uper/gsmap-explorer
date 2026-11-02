@@ -45,7 +45,13 @@ if __name__ == "__main__":
                         help="Tanpa pertanyaan Lanjut? (mis. run terjadwal)")
     parser.add_argument("--text-menu", action="store_true",
                         help="Menu di jendela ini, bukan halaman di peramban")
+    parser.add_argument("--download-maps", action="store_true",
+                        help="Unduh lapisan peta Natural Earth sekarang (dipakai install.bat), lalu berhenti")
     args = parser.parse_args()
+    if args.download_maps:
+        from apps.visualize import download_natural_earth
+        print("Natural Earth map layers:")
+        sys.exit(0 if download_natural_earth() else 1)
     if args.mode or args.text_menu:
         mode = args.mode if args.mode else pilih_mode()
         run_pipeline(mode=mode, config_path=args.config, menu=not args.no_menu)

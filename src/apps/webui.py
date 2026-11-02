@@ -39,13 +39,13 @@ from apps.rain_tables import RAIN_OUTPUTS
 from core.local_time import TIME_ZONE_HOURS
 from core.reader import MONTH_FILE
 from utils.config_reader import PROGRAM_DIR, local_config_path, read_config_with_local, resolve_path
-from utils.settings import EXTRACT_REGIONS, MAP_OUTPUTS
+from utils.settings import COLUMN_ORDERS, EXTRACT_REGIONS, MAP_OUTPUTS
 
 PAGE = Path(__file__).resolve().parents[1] / "web" / "index.html"
 FILE_KINDS = {"folder": (), "shp": (".shp",), "csv": (".csv",)}
 MODES = ("extract", "visualize", "thiessen")   # main.MODES; not imported to keep the page light to start
 VALUE_KEYS = ("gsmap_folder", "extract_region", "min_lon", "max_lon", "min_lat", "max_lat", "points_file",
-              "start_date", "end_date", "output_folder", "time_zone", "day_start_hour")
+              "start_date", "end_date", "output_folder", "time_zone", "day_start_hour", "thiessen_column_order")
 
 
 def current_values(cfg: dict) -> dict:
@@ -375,7 +375,8 @@ class Handler(BaseHTTPRequestHandler):
                                  "values": current_values(config),
                                  "options": {"modes": list(MODES), "regions": list(EXTRACT_REGIONS),
                                              "time_zones": list(TIME_ZONE_HOURS), "rain_outputs": list(RAIN_OUTPUTS),
-                                             "map_outputs": list(MAP_OUTPUTS)}})
+                                             "map_outputs": list(MAP_OUTPUTS),
+                                             "column_orders": list(COLUMN_ORDERS)}})
             elif path == "/api/browse":
                 self._json(200, browse(body.get("path"), body.get("kind", "folder")))
             elif path == "/api/check_data":

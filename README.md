@@ -47,13 +47,20 @@ yearly rain and the annual maximum daily rain (with its date).
 ## ⚙️ Installation
 
 1. Install **Miniforge** (conda): https://github.com/conda-forge/miniforge
-2. Double-click **`install.bat`**. It creates the Python environment in the
-   folder `env\` of the program from `environment.yml` (conda-forge, internet
-   needed, a few minutes). It ends with `libraries: ok`. Run it again after
-   moving the program folder (a conda environment in a folder cannot be moved).
+2. Double-click **`install.bat`**. It finds Miniforge (installed for one user
+   or for all users, or conda on PATH), creates the Python environment in the
+   folder `env\` of the program from `environment.yml` (every library from
+   conda-forge, internet needed, a few minutes), checks it (`libraries: ok`)
+   and downloads the Natural Earth map layers, so the first map needs no
+   internet. Run it again after moving the program folder (a conda
+   environment in a folder cannot be moved).
 
 Without conda: `pip install -r requirements.txt` in your own Python, then
 `python run.py`.
+
+📄 Petunjuk lengkap (Bahasa Indonesia): **`docs\manual.pdf`**. It is built
+from `docs\manual.md` by `python docs\build_manual.py` (env `heslab-dev`,
+Microsoft Edge); edit the `.md`, not the PDF.
 
 The map layers (coastline, borders, provinces, places) come from Natural Earth
 through cartopy and are downloaded once, at the first map (internet needed).
@@ -223,7 +230,7 @@ replaces the same key of `config/input.txt`, and the program prints which keys
 came from it. The page changes only the keys it shows (`gsmap_folder`,
 `extract_region`, `min_lon` .. `max_lat`, `points_file`, `shape_<name>`,
 `start_date`, `end_date`, `output_folder`, `time_zone`, `day_start_hour`,
-`rain_outputs`, `map_outputs`) and keeps the other lines and comments of the
+`rain_outputs`, `map_outputs`, `thiessen_column_order`) and keeps the other lines and comments of the
 file; a `shape_<name>` line removed on the page is removed from the file.
 
 `config/input.txt` holds the defaults of every choice; each key is explained
@@ -310,7 +317,9 @@ cell holding each point (one column per point, named as in `points_file`).
 ### Thiessen
 
 `<output_folder>/thiessen_output/<name>/` for each `shape_<name>`: the rain
-outputs with one column per region (value of the id field), plus `weights.csv`
+outputs with one column per region (value of the id field), in the order of
+`thiessen_column_order` (`shapefile` = attribute table, `ascending`,
+`descending`), plus `weights.csv`
 (region, cell, geodesic area, weight), `map.png` and `choices.txt`.
 
 Thiessen polygons are built from the grid points around the shapefile (bounds

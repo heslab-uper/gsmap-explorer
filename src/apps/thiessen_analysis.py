@@ -1,5 +1,6 @@
 """Mode thiessen: areal rain of the regions of every shapefile (Thiessen polygons of the grid points)."""
 
+import re
 from datetime import datetime
 
 import geopandas as gpd
@@ -72,6 +73,24 @@ def areal_rain(hourly: pd.DataFrame, weights: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def _natural_key(value) -> list:
+    """Text compared with its digits as numbers: SubDAS_2 before SubDAS_10."""
+    return [int(t) if t.isdigit() else t.lower() for t in re.split(r"(\d+)", str(value))]
+
+
+def region_order(ids: pd.Series, order: str) -> list:
+    """The regions (values of the id field) in the order of ``thiessen_column_order``.
+
+    shapefile: first appearance in the attribute table; ascending, descending:
+    by value, numbers as numbers (a numeric column, or the digits inside text).
+    """
+    unique = list(pd.unique(ids))
+    if order == "shapefile":
+        return unique
+    key = None if pd.api.types.is_numeric_dtype(ids) else _natural_key
+    return sorted(unique, key=key, reverse=order == "descending")
+
+
 def run_thiessen(grid, settings, maps, extent) -> None:
     """Areal rain (Thiessen) of the regions of every shape_<name>, in <output_folder>/thiessen_output/<name>/.
 
@@ -92,7 +111,12 @@ def run_thiessen(grid, settings, maps, extent) -> None:
         print(f"Thiessen {shape.name} ({shape.path.name} | {shape.id_field}): {len(near)} grid point(s) around it")
         weights = thiessen_weights(near[["cell_lon", "cell_lat"]].to_numpy(), list(near.index), regions,
                                    shape.id_field, names=dict(zip(near.index, near.name)))
+        order = region_order(regions[shape.id_field], settings.thiessen_column_order)
+        rank = {r: i for i, r in enumerate(order)}
+        weights = weights.sort_values(["region", "column"], key=lambda s: s.map(rank) if s.name == "region" else s,
+                                      ignore_index=True)
         areal = areal_rain(grid.hourly, weights)
+        areal = areal[[str(r) for r in order if str(r) in areal.columns]]
         written = write_rain_tables(areal, settings, out)
         weights.assign(cell=weights["column"].map(cells["name"]))[["region", "cell", "area_m2", "fraction"]] \
             .to_csv(out / "weights.csv", index=False, float_format="%.6f")
@@ -100,7 +124,7 @@ def run_thiessen(grid, settings, maps, extent) -> None:
         plot_extract_map(grid, settings, maps, view, used, out / "map.png", regions=regions, id_field=shape.id_field,
                          title="Thiessen")
         summary = [f"{shape.name} ({shape.path.name} | {shape.id_field}): {areal.shape[1]} region(s), "
-                   f"{len(used)} grid cell(s) weighted",
+                   f"{len(used)} grid cell(s) weighted, columns in {settings.thiessen_column_order} order",
                    f"hourly {areal.index[0]} .. {areal.index[-1]} ({settings.time_zone}), "
                    f"{int(areal.isna().all(axis=1).sum())} hour(s) missing",
                    "files: " + ", ".join(p.name for p in written) + ", weights.csv, map.png"]

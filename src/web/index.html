@@ -173,6 +173,9 @@ code { font-family: var(--mono); font-size: .85em; }
       </div>
       <div class="checks" id="rain-box" style="margin-top:10px">Tabel hujan yang ditulis<div class="row" id="rain_outputs"></div></div>
       <div class="checks" id="map-box" style="margin-top:10px">Jenis peta<div class="row" id="map_outputs"></div></div>
+      <div class="grid2" id="order-box" style="margin-top:10px">
+        <label>Urutan kolom wilayah<select id="thiessen_column_order"></select></label>
+      </div>
       <p id="adv-err" class="err"></p>
     </details>
   </section>
@@ -295,6 +298,8 @@ const MODE_NOTES = {
   extract: "Hujan jam-jaman, harian, bulanan, tahunan dan maksimum harian tiap sel grid atau titik.",
   visualize: "Peta hujan wilayah yang dipilih.",
   thiessen: "Hujan wilayah per poligon tiap shapefile (bobot luas Thiessen)."};
+const COLUMN_ORDER_LABELS = {shapefile: "sesuai shapefile (tidak diurutkan)",
+  ascending: "terkecil ke terbesar", descending: "terbesar ke terkecil"};
 
 function showPath(el, value) {
   el.textContent = value || "Belum dipilih";
@@ -343,6 +348,7 @@ function render() {
   $("points-part").hidden = region !== "points";
   $("rain-box").hidden = state.mode === "visualize";
   $("map-box").hidden = state.mode !== "visualize";
+  $("order-box").hidden = !thiessen;
   validate();
 }
 $("mode").addEventListener("click", e => { if (e.target.dataset.v) { state.mode = e.target.dataset.v; render(); } });
@@ -642,7 +648,7 @@ function formValues() {
           points_file: state.points_file, start_date: $("start_date").value, end_date: $("end_date").value,
           output_folder: state.output_folder, time_zone: $("time_zone").value,
           day_start_hour: $("day_start_hour").value, rain_outputs: checked("rain_outputs"),
-          map_outputs: checked("map_outputs")};
+          map_outputs: checked("map_outputs"), thiessen_column_order: $("thiessen_column_order").value};
 }
 
 /* ---- start and stop ---- */
@@ -656,6 +662,8 @@ api("/api/info").then(info => {
   for (const id of ["min_lon", "max_lon", "min_lat", "max_lat", "start_date", "end_date", "day_start_hour"]) $(id).value = v[id];
   for (const z of o.time_zones) $("time_zone").append(new Option(z, z));
   $("time_zone").value = v.time_zone;
+  for (const c of o.column_orders) $("thiessen_column_order").append(new Option(COLUMN_ORDER_LABELS[c] || c, c));
+  $("thiessen_column_order").value = o.column_orders.includes(v.thiessen_column_order) ? v.thiessen_column_order : "shapefile";
   checks("rain_outputs", o.rain_outputs, v.rain_outputs);
   checks("map_outputs", o.map_outputs, v.map_outputs);
   state.extract_region = o.regions.includes(v.extract_region) ? v.extract_region : "box";

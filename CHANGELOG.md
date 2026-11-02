@@ -69,8 +69,23 @@ are not read, and each missing new key stops the program with its name.
   replaces keys of `config/input.txt`. `output_folder` inside the program
   folder must be under `data/`.
 - `region_margin_deg` (0.2) on every side of the region read.
+- `thiessen_column_order` (owner 2026-11-02): order of the region columns of
+  thiessen (and the rows of `weights.csv`): `shapefile` (attribute table
+  order, the default), `ascending` or `descending`; numbers sort as numbers,
+  also inside text ids (`SubDAS_2` before `SubDAS_10`). Chosen on the page
+  under *Lanjutan* for Thiessen.
+- `install.bat` finds Miniforge installed for one user or for all users
+  (`%USERPROFILE%`, `%LOCALAPPDATA%`, `%ProgramData%`) or conda on PATH, and
+  downloads the Natural Earth map layers (`run.py --download-maps`), so the
+  first map needs no internet; offline this is a note, not a failure.
+- User manual in Indonesian: `docs/manual.md`, built to `docs/manual.pdf` by
+  `docs/build_manual.py`.
 
 ### Changed behaviour
+
+- Thiessen columns follow the attribute table of the shapefile by default;
+  before, they were always sorted by the id value (`thiessen_column_order =
+  ascending` gives that order back, with natural sorting of text ids).
 
 - `start_date` .. `end_date` are local rain days (`day_start_hour` in
   `time_zone`), dated by `daily_date_label = end` (owner 2026-10-17): Thursday =

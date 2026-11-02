@@ -254,6 +254,8 @@ class Settings:
     """Mode extract: box, shape (each shape_<name>) or points (points_file)."""
     points_file: Path | None
     """CSV name,lat,lon of extract_region = points (checked only then)."""
+    thiessen_column_order: str
+    """Mode thiessen: order of the region columns (``COLUMN_ORDERS``)."""
 
     def describe(self) -> str:
         return "\n".join(f"  {k}: {v}" for k, v in asdict(self).items())
@@ -268,6 +270,7 @@ def read_rain_outputs(cfg: dict) -> list:
 
 
 EXTRACT_REGIONS = ("box", "shape", "points")
+COLUMN_ORDERS = ("shapefile", "ascending", "descending")
 
 
 def read_settings(cfg: dict, *, extract: bool = False, thiessen: bool = False) -> Settings:
@@ -307,6 +310,7 @@ def read_settings(cfg: dict, *, extract: bool = False, thiessen: bool = False) -
         shapes=shapes,
         extract_region=extract_region,
         points_file=points_file,
+        thiessen_column_order=choice_key(cfg, "thiessen_column_order", COLUMN_ORDERS),
     )
 
 
