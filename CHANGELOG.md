@@ -80,6 +80,10 @@ are not read, and each missing new key stops the program with its name.
   first map needs no internet; offline this is a note, not a failure.
 - User manual in Indonesian: `docs/manual.md`, built to `docs/manual.pdf` by
   `docs/build_manual.py`.
+- Manual (owner 2026-11-09): a table of what each part of the page takes and
+  which menu uses it (section 6), step-by-step examples for Extract (points),
+  Visualisasi (daily maps of an event) and Thiessen (subbasins) (6.11), and
+  the page's red messages with what to do (6.12).
 
 ### Changed behaviour
 

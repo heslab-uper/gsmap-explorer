@@ -118,6 +118,31 @@ Halaman diisi dari atas ke bawah. Pesan merah di bawah sebuah bagian
 menyebut apa yang masih kurang. Tombol **Jalankan** baru aktif setelah semua
 bagian benar dan ringkasan siap.
 
+Isi tiap bagian halaman, dari atas ke bawah:
+
+| No | Bagian di halaman | Yang diisi | Menu yang memakainya | Penjelasan |
+|---|---|---|---|---|
+| 1 | **Folder data GSMaP** | folder `.nc` satu produk (**Telusuri**) | semua | 6.2 |
+| 2 | **Menu** | klik **Extract**, **Visualisasi**, atau **Thiessen** | semua | 6.3 |
+| 3 | **Wilayah** | **Kotak** (4 batas), **Shapefile** (berkas + kolom pengenal), atau **Titik** (berkas `.csv`) | Extract, Visualisasi | 6.4 |
+| 3 | **Shapefile (wilayah Thiessen)** | satu atau lebih shapefile + kolom pengenal; tombol Kotak dan Titik tidak tampil | Thiessen | 6.4 |
+| 4 | **Periode** | tanggal awal dan tanggal akhir | semua | 6.5 |
+| 5 | **Folder hasil** | folder tempat hasil ditulis | semua | 6.6 |
+| 6 | **Lanjutan** (lipatan) | zona waktu, jam awal hari hujan | semua | 6.7 |
+|   |  | **Tabel hujan yang ditulis** | Extract, Thiessen | 6.7 |
+|   |  | **Jenis peta** | Visualisasi | 6.7 |
+|   |  | **Urutan kolom wilayah** | Thiessen | 6.7 |
+| 7 | **Ringkasan** | tidak diisi: periksa, lalu klik **Jalankan** | semua | 6.8 |
+| 8 | **Proses** | tidak diisi: log dan tombol **Buka folder** | semua | 6.9 |
+
+Isian bagian **Lanjutan** sudah terisi nilai bawaan: zona waktu WIB, jam awal
+hari 7, kelima tabel hujan dicentang, peta harian, bulanan, dan tahunan
+dicentang, urutan kolom *sesuai shapefile*. Bila ada isian Lanjutan yang
+salah, lipatan itu terbuka sendiri dan menampilkan pesannya.
+
+Langkah lengkap per menu dengan contoh isian ada di bagian 6.11; arti tiap
+pesan merah di bagian 6.12.
+
 ### 6.1 Jendela Telusuri
 
 Semua tombol **Telusuri** membuka jendela yang sama:
@@ -229,6 +254,103 @@ folder** membukanya di Explorer. Hanya satu proses pada satu waktu.
 Klik **Tutup program**, atau tutup jendela hitam. Pilihan terakhir tersimpan
 di `config\input.local.txt`, jadi `run.bat` berikutnya membuka halaman dengan
 isian yang sama.
+
+### 6.11 Langkah per menu, dengan contoh
+
+Tiap contoh dimulai dari `run.bat` dan halaman yang sudah terbuka. Angka dan
+nama folder hanya contoh; ganti dengan data Anda.
+
+#### A. Extract: hujan harian di pos hujan (titik)
+
+1. **Folder data GSMaP** → **Telusuri** → masuk ke `D:\GSMaP\STD_V8_GA` →
+   **Pilih folder ini**. Tunggu sampai muncul baris ✓ dengan produk dan
+   bulan yang tersedia.
+2. **Menu** → klik **Extract**.
+3. **Wilayah** → klik **Titik** → **Telusuri** → klik berkas
+   `config\points.csv` (atau berkas titik Anda dengan kolom `name,lat,lon`).
+   Muncul `✓ 3 titik: Jakarta, Bandung, Semarang`.
+4. **Periode** → 1 Januari 2020 sampai 31 Desember 2020.
+5. **Folder hasil** → biarkan `data\output`, atau **Telusuri** ke folder
+   lain → **Pilih folder ini**.
+6. **Lanjutan** (boleh dilewati) → pada *Tabel hujan yang ditulis*, centang
+   hanya **harian** dan **maks. harian** bila hujan jam-jaman tidak perlu
+   (berkas jam-jaman paling besar).
+7. **Ringkasan** → periksa periode dan ukurannya → klik **Jalankan**.
+8. **Proses** → tunggu `✓ Selesai …` → **Buka folder**. Hasilnya di
+   `extract_output\points\`, misalnya `rain_daily.csv` dengan satu kolom per
+   titik.
+
+Untuk **Kotak** (langkah 3): klik **Kotak** lalu isi, misalnya, bujur min
+`110.2`, bujur maks `110.6`, lintang min `-8.1`, lintang maks `-7.6`. Untuk
+**Shapefile**: klik **Shapefile** → **+ Tambah shapefile** → pilih `.shp` →
+pilih **Kolom pengenal wilayah**. Hasilnya satu kolom per sel grid.
+
+#### B. Visualisasi: peta hujan harian sebuah kejadian
+
+1. **Folder data GSMaP** → seperti contoh A.
+2. **Menu** → klik **Visualisasi**.
+3. **Wilayah** → klik **Kotak** → bujur min `106.5`, bujur maks `107.2`,
+   lintang min `-6.8`, lintang maks `-5.9` (atau **Shapefile** agar batas
+   wilayahnya ikut tergambar di peta).
+4. **Periode** → periode pendek, misalnya 31 Desember 2019 sampai 2 Januari 2020.
+   Tanggal 1 Januari berarti hujan 31 Desember 07.00 sampai 1 Januari 07.00
+   WIB (bagian 6.5).
+5. **Folder hasil** → seperti contoh A.
+6. **Lanjutan** → *Jenis peta*: centang **harian**; tambahkan **jam-jaman**
+   hanya untuk periode beberapa hari (satu gambar per jam). Peta bulanan dan
+   tahunan hanya dibuat untuk bulan atau tahun yang utuh di dalam periode,
+   jadi untuk periode pendek boleh dimatikan.
+7. **Ringkasan** → **Jalankan**.
+8. **Proses** → **Buka folder** → `visualization_output\daily\`, misalnya
+   `rain_daily_20200101.png`.
+
+#### C. Thiessen: hujan wilayah tiap subDAS
+
+1. **Folder data GSMaP** → seperti contoh A.
+2. **Menu** → klik **Thiessen**. Judul bagian 3 berubah menjadi
+   **Shapefile (wilayah Thiessen)**; pilihan Kotak dan Titik tidak tampil.
+3. **+ Tambah shapefile** → pilih, misalnya, `D:\DAS\subdas.shp`. Kartu
+   shapefile menampilkan sistem koordinat (bila bukan EPSG:4326, tertulis
+   `→ dikonversi ke derajat`) dan jumlah poligon.
+4. **Kolom pengenal wilayah** → pilih kolom yang menamai tiap subDAS. Tiap
+   pilihan menunjukkan jumlah nilai unik dan contohnya, misalnya
+   `SubDAS (12 nilai: SubDAS_1, SubDAS_2, SubDAS_3, …)`. Pilih kolom yang
+   jumlah nilainya sama dengan jumlah subDAS. Kolom luas atau panjang
+   biasanya bukan pengenal.
+5. Bila perlu shapefile lain (misalnya kabupaten), ulangi langkah 3–4.
+6. **Periode** → misalnya 1 Januari 2001 sampai 31 Desember 2025.
+7. **Folder hasil** → seperti contoh A.
+8. **Lanjutan** → *Urutan kolom wilayah*: **sesuai shapefile** (bawaan),
+   **terkecil ke terbesar**, atau **terbesar ke terkecil** (bagian 7.3). Pada
+   *Tabel hujan yang ditulis*, matikan **jam-jaman** untuk periode puluhan
+   tahun bila tidak perlu.
+9. **Ringkasan** → **Jalankan**.
+10. **Proses** → **Buka folder** → `thiessen_output\subdas\`:
+    `rain_daily.csv` (satu kolom per subDAS), `weights.csv` (bobot luas tiap
+    sel), `map.png`, `choices.txt`.
+
+### 6.12 Pesan merah dan artinya
+
+| Bagian | Pesan | Yang dilakukan |
+|---|---|---|
+| Folder data GSMaP | ✗ Folder tidak ditemukan / Tidak ada berkas GSMaP bulanan … / Ada dua berkas untuk bulan yang sama … | pilih folder yang benar; nama berkas `_YYYYMM.nc` atau `_YYYY_MM.nc`; satu produk per folder (bagian 4) |
+| Wilayah | Isi keempat batas kotak. | isi bujur min/maks dan lintang min/maks |
+| Wilayah | Bujur min harus < bujur maks, lintang min < lintang maks. | tukar nilai yang terbalik; lintang selatan negatif (-8 lebih kecil dari -7) |
+| Wilayah | Bujur -180..180, lintang -90..90. | periksa tanda dan nilai derajat |
+| Wilayah | Tambah minimal satu shapefile. / Thiessen perlu minimal satu shapefile. | klik **+ Tambah shapefile** |
+| Wilayah | Ada shapefile yang tidak bisa dipakai; hapus atau ganti. | baca `✗` di kartu shapefile (biasanya `.prj`, `.shx`, atau `.dbf` tidak ada); **Hapus**, lalu tambah berkas yang benar |
+| Wilayah | Pilih kolom pengenal tiap shapefile. | pilih **Kolom pengenal wilayah** di setiap kartu |
+| Wilayah | Pilih berkas titik (.csv). / Berkas titik tidak bisa dipakai. | pilih `.csv` dengan kolom `name,lat,lon`; baca `✗` di bawahnya |
+| Periode | Isi tanggal awal dan akhir. | isi keduanya |
+| Periode | Tanggal akhir sebelum tanggal awal. | tukar tanggalnya |
+| Folder hasil | Pilih folder hasil. | **Telusuri** → **Pilih folder ini** |
+| Lanjutan | Jam awal hari hujan harus bilangan bulat 0-23. | isi angka bulat, misalnya 7 |
+| Lanjutan | Centang minimal satu tabel hujan. | centang sedikitnya satu tabel (Extract, Thiessen) |
+| Lanjutan | Centang minimal satu jenis peta. | centang sedikitnya satu jenis peta (Visualisasi) |
+| Ringkasan | ✗ no monthly .nc file under … | periode di luar bulan yang tersedia di folder data (lihat baris ✓ di bagian 1); geser periodenya |
+| Ringkasan | ✗ region of …: … is outside the grid … | kotak, titik, atau shapefile di luar grid GSMaP; periksa koordinat (bujur timur positif, lintang selatan negatif) |
+| Proses | `✗ Gagal …` | sebabnya tertulis di log; perbaiki isian lalu **Jalankan** lagi |
+| Atas halaman | Program tidak tersambung. Jalankan run.bat lagi. | jendela hitam sudah tertutup; klik dua kali `run.bat` |
 
 ## 7. Hasil
 
